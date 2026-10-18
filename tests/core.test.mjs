@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readSmsFromHash } from '../js/sms/fragment.js';
+import { readTextFromHash } from '../js/sms/fragment.js';
 import { createBackup, openBackup, deriveKey, encryptJSON, decryptJSON, randomBytes, toBase64, fromBase64 } from '../js/crypto.js';
 import {
   convert, toBase, monthSummary, averageMonthlySaving, averageMonthlyContributions, holdingStats, netWorth, goalCurrent, goalPlan, goalMonthlyRate,
-  budgetStatus, addMonths,
+  budgetStatus, addMonths, loanRemaining, loanTotals, dueLoans, openLoansWith, goalBreakdown,
 } from '../js/finance.js';
 import { detectRecurring, merchantKey } from '../js/recurring.js';
 import { suggestCategory } from '../js/categorize.js';
@@ -12,14 +12,17 @@ import { createInitialState, migrate, defaultCategories, newGoal, startingRates 
 
 const rates = { GBP: 1, QAR: 5, EGP: 60, USD: 1.25 };
 
-test('URL fragment: sms last, optional from, decoding', () => {
-  assert.deepEqual(readSmsFromHash('#sms=Purchase%20of%20QAR%2010%20%26%20more'), { sms: 'Purchase of QAR 10 & more', from: null });
-  assert.deepEqual(readSmsFromHash('#from=QNB&sms=a%20b'), { sms: 'a b', from: 'QNB' });
-  assert.deepEqual(readSmsFromHash('#sms=raw text & stuff=1'), { sms: 'raw text & stuff=1', from: null });
-  assert.deepEqual(readSmsFromHash('#sms=5% off'), { sms: '5% off', from: null });
-  assert.deepEqual(readSmsFromHash('#sms=%2B974'), { sms: '+974', from: null });
-  assert.equal(readSmsFromHash('#home'), null);
-  assert.equal(readSmsFromHash(''), null);
+test('URL fragment: sms/say last, optional from, decoding', () => {
+  assert.deepEqual(readTextFromHash('#sms=Purchase%20of%20QAR%2010%20%26%20more'), { kind: 'sms', text: 'Purchase of QAR 10 & more', from: null });
+  assert.deepEqual(readTextFromHash('#from=QNB&sms=a%20b'), { kind: 'sms', text: 'a b', from: 'QNB' });
+  assert.deepEqual(readTextFromHash('#sms=raw text & stuff=1'), { kind: 'sms', text: 'raw text & stuff=1', from: null });
+  assert.deepEqual(readTextFromHash('#sms=5% off'), { kind: 'sms', text: '5% off', from: null });
+  assert.deepEqual(readTextFromHash('#sms=%2B974'), { kind: 'sms', text: '+974', from: null });
+  assert.deepEqual(readTextFromHash('#say=' + encodeURIComponent('اشتريت قهوة بـ 15 ريال')), { kind: 'say', text: 'اشتريت قهوة بـ 15 ريال', from: null });
+  assert.deepEqual(readTextFromHash('#say=spent 5 & sms= inside'), { kind: 'say', text: 'spent 5 & sms= inside', from: null });
+  assert.equal(readTextFromHash('#home'), null);
+  assert.equal(readTextFromHash('#smsx=1'), null);
+  assert.equal(readTextFromHash(''), null);
 });
 
 test('AES-GCM round trip and wrong key fails', async () => {
@@ -111,7 +114,7 @@ test('net worth and goal progress by funding source, in the goal currency', () =
       { id: 'h2', currency: 'USD', contributions: [{ amount: 125, currency: 'USD', date: '2026-09-01' }], values: [] },
     ],
   };
-  assert.deepEqual(netWorth(state), { cash: 1500, investments: 1300, liabilities: 100, total: 2700 });
+  assert.deepEqual(netWorth(state), { cash: 1500, investments: 1300, receivables: 0, liabilities: 100, payables: 0, total: 2700 });
   const g = (o) => newGoal({ target: 1000, currency: 'QAR', ...o });
   assert.equal(goalCurrent(g({ funding: 'savings' }), state), 7500); // 1500 GBP in QAR
   assert.equal(goalCurrent(g({ funding: 'investments' }), state), 6500);
@@ -202,7 +205,7 @@ test('initial state uses the chosen main currency and the user\'s own goals', ()
   assert.ok(s.rates.QAR > 0 && s.rates.QAR < 1);
   assert.deepEqual(s.goals, []);
   const g = createInitialState({ reportCurrency: 'USD', goals: [{ name: 'House', target: 20000, currency: 'USD', funding: 'investments', targetDate: '2030-01-01' }] }).goals[0];
-  assert.deepEqual([g.name, g.target, g.currency, g.funding, g.accounts, g.holdings, g.targetDate], ['House', 20000, 'USD', 'investments', 'all', 'all', '2030-01-01']);
+  assert.deepEqual([g.name, g.target, g.currency, g.funding, g.accounts, g.holdings, g.targetDate, g.excludeReceivables], ['House', 20000, 'USD', 'investments', 'all', 'all', '2030-01-01', false]);
   const r = startingRates('QAR', ['QAR', 'USD', 'XYZ']);
   assert.equal(r.QAR, 1);
   assert.ok(Math.abs(r.USD - 1 / 3.64) < 1e-9);
@@ -223,4 +226,49 @@ test('migration fills gaps', () => {
   assert.equal(m.goals[0].currency, 'EGP');
   assert.equal(m.goals[0].funding, 'both');
   assert.equal(addMonths('2026-12', 1), '2027-01');
+});
+
+test('personal loans: remaining, totals per person, due dates', () => {
+  const state = {
+    rates,
+    loans: [
+      { id: 'l1', person: 'Ahmed', direction: 'lent', amount: 500, currency: 'QAR', date: '2026-09-01', dueDate: '2026-10-20', repayments: [{ amount: 200, date: '2026-10-01' }] },
+      { id: 'l2', person: 'ahmed ', direction: 'borrowed', amount: 50, currency: 'GBP', date: '2026-09-05', repayments: [] },
+      { id: 'l3', person: 'محمد', direction: 'borrowed', amount: 6000, currency: 'EGP', date: '2026-08-01', dueDate: '2026-10-01', repayments: [] },
+      { id: 'l4', person: 'Sara', direction: 'lent', amount: 100, currency: 'GBP', date: '2026-07-01', repayments: [], settledAt: '2026-08-01' },
+      { id: 'l5', person: 'أحمد', direction: 'lent', amount: 100, currency: 'GBP', date: '2026-07-01', repayments: [{ amount: 150, date: '2026-08-01' }] },
+    ],
+  };
+  assert.equal(loanRemaining(state.loans[0]), 300);
+  assert.equal(loanRemaining(state.loans[3]), 0); // settled
+  assert.equal(loanRemaining(state.loans[4]), 0); // over-repaid never goes negative
+  const t = loanTotals(state);
+  assert.equal(t.owedToMe, 60); // 300 QAR
+  assert.equal(t.iOwe, 150); // 50 GBP + 6000 EGP
+  const ahmed = t.people.find((p) => p.key === 'ahmed');
+  assert.equal(ahmed.net, 10); // owes me 60, I owe him 50
+  assert.equal(ahmed.loans.length, 2);
+  const due = dueLoans(state, new Date(2026, 9, 18));
+  assert.deepEqual(due.map((d) => [d.loan.id, d.daysLeft, d.overdue]), [['l3', -17, true], ['l1', 2, false]]);
+  assert.deepEqual(openLoansWith(state, 'AHMED', 'lent').map((l) => l.id), ['l1']);
+  assert.deepEqual(openLoansWith(state, 'احمد').map((l) => l.id), []); // أحمد's loan is fully repaid
+});
+
+test('loans in net worth and goal progress, with receivables toggle', () => {
+  const state = {
+    ...createInitialState({ reportCurrency: 'GBP' }),
+    rates,
+    accounts: [{ id: 'a1', balance: 1000, currency: 'GBP' }],
+    loans: [
+      { id: 'l1', person: 'A', direction: 'lent', amount: 300, currency: 'GBP', date: '2026-09-01', repayments: [] },
+      { id: 'l2', person: 'B', direction: 'borrowed', amount: 100, currency: 'GBP', date: '2026-09-01', repayments: [] },
+    ],
+  };
+  const nw = netWorth(state);
+  assert.equal(nw.receivables, 300);
+  assert.equal(nw.payables, 100);
+  assert.equal(nw.total, 1200);
+  const g = newGoal({ target: 5000, currency: 'QAR', funding: 'savings' });
+  assert.deepEqual(goalBreakdown(g, state), { sources: 5000, receivables: 1500, payables: 500, total: 6000 });
+  assert.equal(goalCurrent({ ...g, excludeReceivables: true }, state), 4500);
 });

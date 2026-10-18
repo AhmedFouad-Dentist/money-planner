@@ -151,13 +151,71 @@ export function holdingStats(holding, rates) {
   };
 }
 
+// ---------------------------------------------------------------- personal loans (السلف)
+// loan: { person, direction: 'lent' (they owe me) | 'borrowed' (I owe them),
+//         amount, currency, date, dueDate?, repayments: [{ amount, date }], settledAt? }
+export function loanRepaid(loan) {
+  return (loan.repayments ?? []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+}
+
+export function loanRemaining(loan) {
+  if (loan.settledAt) return 0;
+  return Math.max(0, (Number(loan.amount) || 0) - loanRepaid(loan));
+}
+
+export const personKey = (name) => String(name ?? '').trim().toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ');
+
+// Totals in base currency: owed to me, I owe, and a net balance per person
+// (positive = they owe me) across all their open loans.
+export function loanTotals(state) {
+  const { rates } = state;
+  let owedToMe = 0;
+  let iOwe = 0;
+  const people = new Map();
+  for (const loan of state.loans ?? []) {
+    const rem = toBase(loanRemaining(loan), loan.currency, rates);
+    const signed = loan.direction === 'lent' ? rem : -rem;
+    if (loan.direction === 'lent') owedToMe += rem;
+    else iOwe += rem;
+    const key = personKey(loan.person);
+    const p = people.get(key) ?? { key, person: loan.person, net: 0, open: 0, loans: [] };
+    p.net += signed;
+    if (rem > 0) p.open++;
+    p.loans.push(loan);
+    people.set(key, p);
+  }
+  return { owedToMe, iOwe, people: [...people.values()].sort((a, b) => Math.abs(b.net) - Math.abs(a.net)) };
+}
+
+// Open loans with a due date within `days` (or already overdue).
+export function dueLoans(state, now = new Date(), days = 3) {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const out = [];
+  for (const loan of state.loans ?? []) {
+    if (!loan.dueDate || loanRemaining(loan) <= 0) continue;
+    const daysLeft = Math.round((parseDate(loan.dueDate) - today) / DAY);
+    if (daysLeft <= days) out.push({ loan, daysLeft, overdue: daysLeft < 0 });
+  }
+  return out.sort((a, b) => a.daysLeft - b.daysLeft);
+}
+
+// Finds open loans with this person, e.g. for "محمد رجّعلي 200".
+export function openLoansWith(state, person, direction) {
+  const key = personKey(person);
+  return (state.loans ?? [])
+    .filter((l) => personKey(l.person) === key && (!direction || l.direction === direction) && loanRemaining(l) > 0)
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
 // ---------------------------------------------------------------- net worth
+// cash + investments + money owed to me − debts − money I owe
 export function netWorth(state) {
   const { rates } = state;
   const cash = (state.accounts ?? []).reduce((s, a) => s + toBase(a.balance, a.currency, rates), 0);
   const investments = (state.holdings ?? []).reduce((s, h) => s + holdingStats(h, rates).valueBase, 0);
   const liabilities = (state.liabilities ?? []).reduce((s, l) => s + toBase(l.amount, l.currency, rates), 0);
-  return { cash, investments, liabilities, total: cash + investments - liabilities };
+  const { owedToMe: receivables, iOwe: payables } = loanTotals(state);
+  return { cash, investments, receivables, liabilities, payables, total: cash + investments + receivables - liabilities - payables };
 }
 
 // ---------------------------------------------------------------- goals
@@ -171,14 +229,28 @@ export function goalSources(goal, state) {
   };
 }
 
-// Current amount saved for a goal, in the goal's currency.
-export function goalCurrent(goal, state) {
+// What makes up a goal's progress, in the goal's currency: the chosen accounts
+// and/or investments, plus money people owe me (unless the goal excludes it),
+// minus money I owe people.
+export function goalBreakdown(goal, state) {
   const { rates } = state;
   const { accounts, holdings } = goalSources(goal, state);
   let base = 0;
   for (const a of accounts) base += toBase(a.balance, a.currency, rates);
   for (const h of holdings) base += holdingStats(h, rates).valueBase;
-  return fromBase(base, goal.currency, rates);
+  const loans = loanTotals(state);
+  const receivablesBase = goal.excludeReceivables ? 0 : loans.owedToMe;
+  const conv = (v) => fromBase(v, goal.currency, rates);
+  return {
+    sources: conv(base),
+    receivables: conv(receivablesBase),
+    payables: conv(loans.iOwe),
+    total: conv(base + receivablesBase - loans.iOwe),
+  };
+}
+
+export function goalCurrent(goal, state) {
+  return goalBreakdown(goal, state).total;
 }
 
 // How fast the goal is growing, in the goal's currency per month.

@@ -1,11 +1,12 @@
 import { h, card, progress } from '../ui.js';
 import { icon } from '../icons.js';
 import { t, money, pct, nameOf } from '../i18n.js';
-import { netWorth, goalCurrent, goalPlan, monthSummary, monthKey, budgetStatus, fromBase } from '../finance.js';
+import { netWorth, goalCurrent, goalPlan, monthSummary, monthKey, budgetStatus, fromBase, dueLoans, loanRemaining } from '../finance.js';
 import { detectRecurring } from '../recurring.js';
 import { S, fmtBase, txRow, sectionTitle, linkBtn, categoryById, backupDue } from './common.js';
 import { go } from './shell.js';
-import { openEntry, openSmsPaste } from './entry.js';
+import { openEntry } from './entry.js';
+import { quickTextCard, addFromClipboard } from './quick.js';
 import { openGoalEditor } from './goals.js';
 
 export function homeView() {
@@ -25,6 +26,11 @@ export function homeView() {
     banners.push(h('button', { class: `banner ${b.level === 'over' ? 'danger' : 'warn'}`, type: 'button', onclick: () => go('budgets') },
       h('strong', { text: t(b.level === 'over' ? 'budget.overShort' : 'budget.warnShort', { cat: `${c.icon} ${nameOf(c)}` }) }),
       h('span', { text: `${money(b.spent, b.budget.currency)} / ${money(b.limit, b.budget.currency)} (${pct(b.pct)})` })));
+  }
+  for (const d of dueLoans(st)) {
+    banners.push(h('button', { class: `banner ${d.overdue ? 'danger' : 'warn'}`, type: 'button', onclick: () => go('loan', { id: d.loan.id }) },
+      h('strong', { text: t(d.overdue ? 'home.loanOverdue' : 'home.loanDue', { name: d.loan.person, n: Math.abs(d.daysLeft) }) }),
+      h('span', { text: `${t(d.loan.direction === 'lent' ? 'loans.theyOwe' : 'loans.iOweThem')}: ${money(loanRemaining(d.loan), d.loan.currency)}` })));
   }
   const handled = new Set([...st.recurring.confirmed.map((r) => r.key), ...st.recurring.dismissed]);
   const newRecurring = detectRecurring(st.transactions).filter((r) => !handled.has(r.key));
@@ -54,7 +60,9 @@ export function homeView() {
     h('button', { class: 'hero-breakdown', type: 'button', onclick: () => go('networth') },
       h('span', {}, `${t('nw.cash')} ${fmtBase(nw.cash, { decimals: 0 })}`),
       h('span', {}, `${t('nw.investments')} ${fmtBase(nw.investments, { decimals: 0 })}`),
-      h('span', {}, `${t('nw.debts')} ${fmtBase(nw.liabilities, { decimals: 0 })}`)),
+      nw.receivables > 0 && h('span', { class: 'pos' }, `${t('nw.receivables')} +${fmtBase(nw.receivables, { decimals: 0 })}`),
+      nw.payables > 0 && h('span', { class: 'neg' }, `${t('nw.payables')} −${fmtBase(nw.payables, { decimals: 0 })}`),
+      nw.liabilities > 0 && h('span', {}, `${t('nw.debts')} −${fmtBase(nw.liabilities, { decimals: 0 })}`)),
     h('hr'),
     goalBlock,
   );
@@ -72,7 +80,7 @@ export function homeView() {
 
   const quick = h('div', { class: 'quick-actions' },
     h('button', { class: 'btn primary', type: 'button', onclick: () => openEntry({}) }, icon('plus', { size: 20 }), t('home.addTx')),
-    h('button', { class: 'btn ghost', type: 'button', onclick: () => openSmsPaste() }, icon('sms', { size: 20 }), t('home.pasteSms')));
+    h('button', { class: 'btn ghost', type: 'button', onclick: () => addFromClipboard() }, icon('clipboard', { size: 20 }), t('clip.button')));
 
   const recent = [...st.transactions].reverse().slice(0, 5);
   const recentCard = card(
@@ -82,5 +90,5 @@ export function homeView() {
       : h('p', { class: 'muted', text: t('home.noTx') }),
   );
 
-  return { title: t('app.name'), body: [banners, hero, quick, monthCard, recentCard] };
+  return { title: t('app.name'), body: [banners, hero, quick, quickTextCard(), monthCard, recentCard] };
 }

@@ -16,20 +16,20 @@ import { S, today, currencyOptions, checkBudgetAlert } from './common.js';
  * @param opts.prefill  values from the SMS parser
  * @param opts.fromSms  show the "from bank SMS" note and ask to confirm
  */
-export function openEntry({ tx, prefill, fromSms = false } = {}) {
+export function openEntry({ tx, prefill, fromSms = false, fromText = false } = {}) {
   const st = S();
   const editing = !!tx;
   const d = {
     type: tx?.type ?? prefill?.type ?? 'expense',
     amount: tx?.amount ?? prefill?.amount ?? '',
     currency: tx?.currency ?? prefill?.currency ?? st.settings.lastCurrency ?? st.settings.defaultCurrency,
-    categoryId: tx?.categoryId ?? null,
+    categoryId: tx?.categoryId ?? prefill?.categoryId ?? null,
     merchant: tx?.merchant ?? prefill?.merchant ?? '',
     date: tx?.date ?? prefill?.date ?? today(),
     note: tx?.note ?? '',
   };
   if (!d.categoryId && d.merchant) d.categoryId = suggestCategory(d.merchant, d.type, st.transactions, st.categories);
-  const quick = !editing && !fromSms;
+  const quick = !editing && !fromSms && !fromText;
 
   const amountInput = numberInput(d.amount === '' ? '' : String(d.amount), { class: 'amount-input', placeholder: '0', 'aria-label': t('entry.amount') });
   const currencySel = select(currencyOptions(d.currency), d.currency, (v) => (d.currency = v), { class: 'currency-select', 'aria-label': t('entry.currency') });
@@ -72,7 +72,7 @@ export function openEntry({ tx, prefill, fromSms = false } = {}) {
       merchant: d.merchant || null,
       date: d.date,
       note: d.note || null,
-      source: tx?.source ?? (fromSms ? 'sms' : 'manual'),
+      source: tx?.source ?? (fromSms ? 'sms' : fromText ? 'text' : 'manual'),
       createdAt: tx?.createdAt ?? new Date().toISOString(),
     };
     update((s) => {
@@ -131,6 +131,9 @@ export function openEntry({ tx, prefill, fromSms = false } = {}) {
     }) }),
   );
 
+  const textNote = fromText && h('div', { class: 'notice' }, t('quick.check'),
+    prefill?.currencyGuessed ? h('div', { class: 'warn-text', text: t('quick.currencyGuessed', { ccy: d.currency }) }) : null);
+
   const footer = h('div', { class: 'sheet-footer' },
     editing && h('button', {
       class: 'btn danger ghost', type: 'button',
@@ -141,13 +144,14 @@ export function openEntry({ tx, prefill, fromSms = false } = {}) {
       },
     }, t('common.delete')),
     moreBtn,
-    h('button', { class: 'btn primary grow', type: 'button', onclick: save }, fromSms ? t('sms.confirmSave') : t('common.save')),
+    h('button', { class: 'btn primary grow', type: 'button', onclick: save }, fromSms || fromText ? t('sms.confirmSave') : t('common.save')),
   );
 
   const sheet = openSheet({
-    title: editing ? t('entry.editTitle') : fromSms ? t('sms.confirmTitle') : t('entry.addTitle'),
+    title: editing ? t('entry.editTitle') : fromSms || fromText ? t('sms.confirmTitle') : t('entry.addTitle'),
     body: [
       smsNote,
+      textNote,
       typeSeg,
       h('div', { class: 'amount-row' }, amountInput, currencySel),
       h('div', { class: 'label-row' }, h('span', { class: 'field-label', text: quick ? t('entry.tapToSave') : t('entry.category') })),

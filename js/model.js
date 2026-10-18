@@ -100,6 +100,7 @@ export function createInitialState({ lang = 'en', currencies = KNOWN_CURRENCIES,
     goals: goals.map(newGoal),
     accounts: [],
     liabilities: [],
+    loans: [],
     invTypes: defaultInvestmentTypes(),
     holdings: [],
     recurring: { confirmed: [], dismissed: [] },
@@ -123,6 +124,7 @@ export function newGoal(g = {}) {
     funding: ['savings', 'investments', 'both'].includes(g.funding) ? g.funding : 'both',
     accounts: Array.isArray(g.accounts) ? g.accounts : 'all',
     holdings: Array.isArray(g.holdings) ? g.holdings : 'all',
+    excludeReceivables: !!g.excludeReceivables,
     createdAt: g.createdAt ?? isoToday(),
   };
 }
@@ -136,7 +138,7 @@ export function migrate(state) {
   s.rates = { ...fresh.rates, ...(state.rates ?? {}), [base]: 1 };
   s.recurring = { ...fresh.recurring, ...(state.recurring ?? {}) };
   for (const k of ['categories', 'invTypes']) if (!Array.isArray(s[k]) || !s[k].length) s[k] = fresh[k];
-  for (const k of ['transactions', 'budgets', 'goals', 'accounts', 'liabilities', 'holdings']) if (!Array.isArray(s[k])) s[k] = [];
+  for (const k of ['transactions', 'budgets', 'goals', 'accounts', 'liabilities', 'loans', 'holdings']) if (!Array.isArray(s[k])) s[k] = [];
   for (const k of ['snapshots', 'alerts']) if (!s[k] || typeof s[k] !== 'object') s[k] = {};
   for (const id of Object.values(OTHER_CATEGORY)) {
     if (!s.categories.some((c) => c.id === id)) s.categories.push(fresh.categories.find((c) => c.id === id));

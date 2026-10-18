@@ -2,7 +2,7 @@ import { h, card, progress, openSheet, field, segmented, select, numberInput, re
 import { t, money, pct, fmtDate, nameOf } from '../i18n.js';
 import { update } from '../store.js';
 import { newGoal } from '../model.js';
-import { goalCurrent, goalPlan, goalMonthlyRate, goalSources } from '../finance.js';
+import { goalBreakdown, goalPlan, goalMonthlyRate, goalSources } from '../finance.js';
 import { S, today } from './common.js';
 
 export function goalsView() {
@@ -21,14 +21,15 @@ export function goalsView() {
 const stat = (label, value, cls = '') => h('div', { class: 'row between stat-row' }, h('span', { class: 'muted', text: label }), h('strong', { class: cls, text: value }));
 
 function goalCard(g, st) {
-  const current = goalCurrent(g, st);
+  const parts = goalBreakdown(g, st);
+  const current = parts.total;
   const rate = goalMonthlyRate(g, st);
   const plan = goalPlan(g, current, rate.avg);
   const src = goalSources(g, st);
   const fmt = (v) => money(v, g.currency, { decimals: 0 });
   const rows = [];
 
-  if (!src.accounts.length && !src.holdings.length) {
+  if (!src.accounts.length && !src.holdings.length && !parts.receivables) {
     rows.push(h('p', { class: 'small warn-text', text: t(`goals.noSources.${g.funding}`) }));
   }
   if (g.targetDate && !plan.reached) {
@@ -57,6 +58,12 @@ function goalCard(g, st) {
       h('span', { text: pct(plan.pct, 1) }),
       h('span', { class: 'muted', text: plan.reached ? t('goals.reached') : `${t('goals.remaining')} ${fmt(plan.remaining)}` })),
     h('p', { class: 'muted small', text: t(`goals.funding.${g.funding}`) }),
+    (parts.receivables > 0 || parts.payables > 0 || (g.excludeReceivables && st.loans.length > 0)) && h('div', { class: 'goal-parts small' },
+      stat(t(`goals.part.${g.funding}`), fmt(parts.sources)),
+      g.excludeReceivables
+        ? h('p', { class: 'muted small', text: t('goals.receivablesExcluded') })
+        : parts.receivables > 0 && stat(t('goals.part.receivables'), `+${fmt(parts.receivables)}`, 'pos'),
+      parts.payables > 0 && stat(t('goals.part.payables'), `−${fmt(parts.payables)}`, 'neg')),
     rows,
   );
 }
@@ -96,6 +103,7 @@ export function goalForm(goal, { currencyOptions, defaultCurrency, accounts = []
     holPicker.wrap.hidden = d.funding === 'savings';
   };
   showPickers();
+  const countReceivables = h('input', { type: 'checkbox', checked: !d.excludeReceivables });
 
   const el = h('div', { class: 'stack' },
     field(t('goals.name'), name),
@@ -106,6 +114,8 @@ export function goalForm(goal, { currencyOptions, defaultCurrency, accounts = []
     h('p', { class: 'muted small', text: t('goals.fundingHint') }),
     accPicker.wrap,
     holPicker.wrap,
+    h('label', { class: 'check-row' }, countReceivables, h('span', { text: t('goals.countReceivables') })),
+    h('p', { class: 'muted small', text: t('goals.loansHint') }),
   );
 
   const read = () => {
@@ -120,7 +130,7 @@ export function goalForm(goal, { currencyOptions, defaultCurrency, accounts = []
       target.focus();
       return null;
     }
-    return newGoal({ ...d, name: name.value.trim(), target: amount, targetDate: date.value || null, accounts: accPicker.read(), holdings: holPicker.read() });
+    return newGoal({ ...d, name: name.value.trim(), target: amount, targetDate: date.value || null, accounts: accPicker.read(), holdings: holPicker.read(), excludeReceivables: !countReceivables.checked });
   };
   return { el, read, focus: () => name.focus() };
 }

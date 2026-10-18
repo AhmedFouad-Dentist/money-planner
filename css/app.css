@@ -206,7 +206,8 @@ button { cursor: pointer; }
 .month-nav { display: flex; align-items: center; justify-content: space-between; }
 .filters { display: flex; flex-direction: column; gap: 8px; }
 .search { width: 100%; }
-.quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.quick-actions { display: grid; grid-template-columns: auto 1fr; gap: 10px; }
+.quick-actions .btn { white-space: nowrap; }
 .disclaimer { text-align: center; }
 .bullets { margin: 4px 0; padding-inline-start: 1.2em; display: flex; flex-direction: column; gap: 6px; }
 .stat-row { padding: 2px 0; }
@@ -403,3 +404,38 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ------------------------------------------------------------ quick text, badges */
+.quick-card { gap: 4px; }
+.quick-row { display: flex; gap: 8px; }
+.quick-row .quick-input { flex: 1; }
+.quick-row .btn { width: 52px; padding: 0; flex: none; }
+.tab-icon { position: relative; display: inline-flex; }
+.badge {
+  position: absolute; top: -4px; inset-inline-end: -10px; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 9px; background: var(--critical); color: #fff; font-size: .7rem; font-weight: 700; line-height: 18px; text-align: center;
+}
+.goal-parts { border-top: 1px dashed var(--line); padding-top: 6px; }
+
+/* ------------------------------------------------------------ setup walkthrough (mock iPhone screens) */
+.walk { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.walk-step { display: flex; gap: 14px; align-items: flex-start; min-height: 230px; }
+.walk-text { flex: 1; min-width: 0; }
+.walk-text p { margin-top: 4px; color: var(--text-2); }
+.phone {
+  width: 128px; flex: none; border-radius: 22px; border: 3px solid var(--text); background: var(--bg);
+  padding: 10px 8px 12px; display: flex; flex-direction: column; gap: 6px; font-size: .62rem; line-height: 1.25;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
+}
+.phone-notch { width: 40px; height: 8px; border-radius: 6px; background: var(--text); margin: 0 auto 4px; }
+.phone-title { font-weight: 800; font-size: .8rem; }
+.phone-list { display: flex; flex-direction: column; gap: 4px; }
+.phone-row {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px;
+  display: flex; justify-content: space-between; align-items: center; gap: 4px;
+}
+.phone-row.hl { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); font-weight: 700; }
+.phone-value { color: var(--muted); }
+.phone-toggle { width: 20px; height: 12px; border-radius: 6px; background: var(--good); position: relative; flex: none; }
+.phone-toggle::after { content: ""; position: absolute; top: 1px; inset-inline-end: 1px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.phone-footer { margin-top: auto; text-align: center; color: var(--muted); }

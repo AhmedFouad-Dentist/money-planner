@@ -1,8 +1,9 @@
 // Boot: capture a bank SMS from the URL fragment, then show onboarding, the
 // lock screen or the app. Handles auto-lock and the service worker.
 
-import { readSmsFromHash } from './sms/fragment.js';
+import { readTextFromHash } from './sms/fragment.js';
 import { parseSms } from './sms/parser.js';
+import { parseQuickText } from './nlp/quicktext.js';
 import * as vault from './vault.js';
 import { requestPersistence } from './db.js';
 import { migrate } from './model.js';
@@ -12,30 +13,36 @@ import { closeAllSheets, toast } from './ui.js';
 import { renderLock, renderOnboarding, renderBridge } from './views/auth.js';
 import { mountShell, unmountShell } from './views/shell.js';
 import { handleSmsResult } from './views/entry.js';
+import { handleQuickResult } from './views/quick.js';
 
-// ---------------------------------------------------------------- SMS from URL
-// Parse immediately and keep ONLY the extracted fields; the message text and
-// the fragment are dropped right away (and removed from the address bar/history).
-let pendingSms = null;
+// ---------------------------------------------------------------- text from URL
+// #sms= (bank message) or #say= (Siri / dictated text). Parsed immediately;
+// only the extracted fields are kept, and the fragment is removed from the
+// address bar and history right away.
+let pending = null;
 
-function captureSmsFromUrl() {
-  const data = readSmsFromHash(location.hash);
+function captureTextFromUrl() {
+  const data = readTextFromHash(location.hash);
   if (!data) return false;
   history.replaceState(null, '', location.pathname + location.search);
-  pendingSms = parseSms(data.sms, { bankHint: data.from });
-  data.sms = null;
+  pending = data.kind === 'sms'
+    ? { kind: 'sms', result: parseSms(data.text, { bankHint: data.from }) }
+    // the user's own dictated words are kept in memory only, for the Safari bridge
+    : { kind: 'say', result: parseQuickText(data.text), text: data.text };
+  data.text = null;
   return true;
 }
 
-function deliverPendingSms() {
-  if (!pendingSms || !store.state) return;
-  const r = pendingSms;
-  pendingSms = null;
-  handleSmsResult(r);
+function deliverPending() {
+  if (!pending || !store.state) return;
+  const p = pending;
+  pending = null;
+  if (p.kind === 'sms') handleSmsResult(p.result);
+  else handleQuickResult(p.result);
 }
 
 window.addEventListener('hashchange', () => {
-  if (captureSmsFromUrl() && store.state) deliverPendingSms();
+  if (captureTextFromUrl() && store.state) deliverPending();
 });
 
 // ---------------------------------------------------------------- auto-lock
@@ -84,17 +91,17 @@ function onUnlocked(state) {
   recordSnapshot(store.state);
   mountShell({ lock: lockNow });
   requestPersistence();
-  deliverPendingSms();
+  deliverPending();
 }
 
 async function boot() {
-  captureSmsFromUrl();
+  captureTextFromUrl();
   const meta = await vault.getMeta().catch(() => null);
   setLang(meta?.lang ?? (navigator.language?.startsWith('ar') ? 'ar' : 'en'));
   applyTheme(meta?.theme);
   if (meta) return renderLock(onUnlocked);
-  if (pendingSms) {
-    return renderBridge(pendingSms, { onSetupHere: () => renderOnboarding(onUnlocked) });
+  if (pending) {
+    return renderBridge(pending, { onSetupHere: () => renderOnboarding(onUnlocked) });
   }
   renderOnboarding(onUnlocked);
 }

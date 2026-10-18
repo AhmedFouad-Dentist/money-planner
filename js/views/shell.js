@@ -10,6 +10,9 @@ import { goalsView } from './goals.js';
 import { investView, holdingView } from './invest.js';
 import { moreView, budgetsView, recurringView, netWorthView, categoriesView, ratesView, backupView, settingsView, aboutView } from './more.js';
 import { reportView } from './report.js';
+import { loansView, loanView } from './loans.js';
+import { connectView } from './connect.js';
+import { dueLoans } from '../finance.js';
 import { openEntry } from './entry.js';
 
 const TABS = [
@@ -36,6 +39,9 @@ const ROUTES = {
   backup: { view: backupView, parent: 'more' },
   settings: { view: settingsView, parent: 'more' },
   about: { view: aboutView, parent: 'more' },
+  loans: { view: loansView, parent: 'more' },
+  loan: { view: loanView, parent: 'loans' },
+  connect: { view: connectView, parent: 'more' },
 };
 
 const nav = { route: 'home', params: {}, from: null };
@@ -54,12 +60,19 @@ export function go(route, params = {}) {
   if (!same) window.scrollTo(0, 0);
 }
 
+// A sub-screen of a sub-screen (e.g. one loan) goes back to its parent;
+// otherwise back returns to the main screen it was opened from.
+function back() {
+  const parent = ROUTES[nav.route].parent;
+  go(ROUTES[parent]?.parent ? parent : nav.from ?? parent);
+}
+
 export function mountShell({ lock }) {
   onLock = lock;
   const app = document.getElementById('app');
   frame = {
     title: h('h1', { class: 'topbar-title' }),
-    back: h('button', { class: 'icon-btn back-btn', type: 'button', 'aria-label': t('common.back'), onclick: () => go(nav.from ?? ROUTES[nav.route].parent) }, icon('back')),
+    back: h('button', { class: 'icon-btn back-btn', type: 'button', 'aria-label': t('common.back'), onclick: back }, icon('back')),
     actions: h('div', { class: 'topbar-actions' }),
     main: h('main', { id: 'main', class: 'main', tabindex: -1 }),
     tabs: h('nav', { class: 'tabbar', 'aria-label': t('common.sections') }),
@@ -97,10 +110,12 @@ export function render() {
     h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('lock.lockNow'), onclick: () => onLock() }, icon('lock', { size: 22 })));
   clear(frame.main, v.body);
   frame.fab.hidden = v.fab === false;
-  const tab = route.parent ? nav.from ?? route.parent : nav.route;
+  const tab = route.parent ? nav.from ?? (ROUTES[route.parent]?.parent ?? route.parent) : nav.route;
+  const badge = dueLoans(store.state).length;
   clear(frame.tabs, TABS.map((tb) =>
     h('button', { type: 'button', class: `tab${tb.id === tab ? ' on' : ''}`, 'aria-current': tb.id === tab ? 'page' : null, onclick: () => go(tb.id) },
-      icon(tb.icon, { size: 24 }), h('span', { text: t(`tab.${tb.id}`) }))));
+      h('span', { class: 'tab-icon' }, icon(tb.icon, { size: 24 }), tb.id === 'more' && badge ? h('span', { class: 'badge', 'aria-label': t('loans.dueBadge', { n: badge }) }, String(badge)) : null),
+      h('span', { text: t(`tab.${tb.id}`) }))));
 }
 
 export function unmountShell() {

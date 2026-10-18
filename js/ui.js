@@ -96,6 +96,8 @@ export function toast(message, { kind = 'info', ms = 3200, action } = {}) {
     action && h('button', { class: 'link-btn', type: 'button', onclick: () => { action.run(); el.remove(); } }, action.label),
   );
   root.append(el);
+  // keep the screen readable: only the two newest toasts stay
+  while (root.children.length > 2) root.firstElementChild.remove();
   setTimeout(() => el.classList.add('out'), ms);
   setTimeout(() => el.remove(), ms + 400);
 }

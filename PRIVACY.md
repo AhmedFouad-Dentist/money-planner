@@ -8,6 +8,10 @@
 
 **Nobody else can see it.** Not the app's author, not GitHub (which only hosts the app's files), not anyone else. The app contains no analytics, no ads, no tracking and no code from other companies.
 
+### The app cannot read your messages
+
+**On iPhone, Money Planner cannot read your SMS or any other messages** — iOS doesn't allow any app to. The app only ever sees text that **you** send it: by copying it and tapping “Add from copied message”, by typing or dictating into the quick-text box, or through an iPhone Shortcut or automation that you set up yourself (and that you can delete at any time in the Shortcuts app). A bank automation passes on only messages from the sender you chose.
+
 ### Bank text messages (SMS)
 
 When you paste a bank message, or send one with an iPhone Shortcut:
@@ -18,6 +22,14 @@ When you paste a bank message, or send one with an iPhone Shortcut:
 - **Refused completely:** any message that mentions a one-time password, verification code, OTP, "رمز التحقق", "كلمة مرور لمرة واحدة" or similar. These are not read or kept at all. Never share such codes with anyone.
 - If a Shortcut opens the app with the message in the web address, it's placed after the `#` sign — browsers never send that part to any server. The app removes it from the address bar straight away. (Safari might still list the visit in its History.)
 - If you use the copy-and-paste Shortcut, the full message sits on your phone's clipboard until you paste it into the app; the app clears the clipboard after reading it.
+
+### Typed, dictated and Siri entries
+
+Text you type, dictate, or say to a Siri shortcut (“Hey Siri, صرفت”) is handled like a bank message: the app extracts the amount, currency, item and income/expense — or, for loans, the person's name and amount — shows them for you to confirm, and throws the text away. Dictation and Siri are Apple features; how Apple processes your voice is set in your iPhone's Siri and dictation settings, not by this app.
+
+### Loans and names
+
+Names of people you lend to or borrow from are stored only on your phone, inside the encrypted data, like everything else. “Send a friendly reminder” only opens your iPhone's share sheet with a message you can choose to send — the app never sends anything by itself.
 
 ### The only time the app goes online
 
@@ -50,6 +62,10 @@ Money Planner only records and adds up your numbers. It does not give financial,
 
 **لا أحد غيرك يستطيع رؤيتها.** لا مطوّر التطبيق، ولا GitHub (الذي يستضيف ملفات التطبيق فقط)، ولا أي جهة أخرى. لا يحتوي التطبيق على إحصاءات أو إعلانات أو تتبّع أو أكواد من شركات أخرى.
 
+### التطبيق لا يستطيع قراءة رسائلك
+
+**على الآيفون لا يستطيع مخطط المال قراءة رسائلك النصية أو أي رسائل أخرى** — نظام iOS لا يسمح بذلك لأي تطبيق. التطبيق يرى فقط النص الذي **ترسله أنت** إليه: بنسخه ثم الضغط على «إضافة من رسالة منسوخة»، أو بالكتابة أو الإملاء في مربع الإضافة السريعة، أو عبر اختصار أو أتمتة على الآيفون تضبطها بنفسك (ويمكنك حذفها في أي وقت من تطبيق الاختصارات). وأتمتة البنك لا تمرّر إلا رسائل المرسل الذي اخترته.
+
 ### رسائل البنك (SMS)
 
 عندما تلصق رسالة من البنك أو ترسلها عبر اختصار iPhone:
@@ -60,6 +76,14 @@ Money Planner only records and adds up your numbers. It does not give financial,
 - **ما يُرفض تمامًا:** أي رسالة تذكر كلمة مرور لمرة واحدة أو رمز تحقق أو OTP أو «رمز التحقق» أو «كلمة مرور لمرة واحدة» أو ما يشبهها. لا تُقرأ ولا تُحفظ إطلاقًا. لا تشارك هذه الرموز مع أي شخص.
 - إذا فتح اختصارٌ التطبيقَ والرسالة داخل الرابط، فهي توضع بعد علامة `#` — وهذا الجزء لا يرسله المتصفح لأي خادم. يحذفه التطبيق من شريط العنوان فورًا. (قد يظل Safari يعرض الزيارة في سجل التصفح.)
 - في اختصار النسخ واللصق تبقى الرسالة كاملة في حافظة هاتفك حتى تلصقها في التطبيق، ثم يمسح التطبيق الحافظة بعد قراءتها.
+
+### الإدخال بالكتابة أو الإملاء أو Siri
+
+النص الذي تكتبه أو تمليه أو تقوله لاختصار Siri («يا Siri، صرفت») يُعامل مثل رسالة البنك: يستخرج التطبيق المبلغ والعملة والبند ونوع العملية — أو اسم الشخص والمبلغ في حالة السلف — ويعرضها لتأكيدها، ثم يتخلّص من النص. الإملاء وSiri من خدمات Apple، وطريقة معالجة Apple لصوتك تحددها إعدادات Siri والإملاء في هاتفك وليس هذا التطبيق.
+
+### السلف والأسماء
+
+أسماء من تُقرضهم أو تقترض منهم تُحفظ على هاتفك فقط داخل البيانات المشفّرة مثل كل شيء آخر. زر «إرسال تذكير لطيف» يفتح فقط نافذة المشاركة في الآيفون برسالة تختار أنت إرسالها — التطبيق لا يرسل شيئًا من تلقاء نفسه.
 
 ### المرات الوحيدة التي يتصل فيها التطبيق بالإنترنت
 

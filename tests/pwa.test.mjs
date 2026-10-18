@@ -23,7 +23,7 @@ test('every translation key used in the code exists in English and Arabic', () =
   const used = new Set();
   for (const f of appFiles.filter((p) => p.endsWith('.js'))) {
     const src = readFileSync(join(root, f), 'utf8');
-    for (const m of src.matchAll(/'((?:about|app|backup|bridge|budget|cat|common|entry|error|goals|home|inv|lock|more|nw|onb|rates|rec|report|settings|sms|tab|tx)\.[A-Za-z0-9.]+)'/g)) used.add(m[1]);
+    for (const m of src.matchAll(/'((?:about|app|backup|bridge|budget|cat|clip|common|connect|entry|error|goals|home|inv|ios|loans|lock|more|nw|onb|quick|rates|rec|report|settings|sms|tab|tx)\.[A-Za-z0-9.]+)'/g)) used.add(m[1]);
   }
   // keys built at runtime
   for (const k of ['savings', 'investments', 'both']) used.add(`goals.funding.${k}`).add(`goals.fundingShort.${k}`).add(`goals.noSources.${k}`);
@@ -33,6 +33,8 @@ test('every translation key used in the code exists in English and Arabic', () =
   for (const k of ['system', 'light', 'dark']) used.add(`settings.theme.${k}`);
   for (const k of ['home', 'tx', 'goals', 'invest', 'more']) used.add(`tab.${k}`);
   for (const k of ['QAR', 'EGP', 'GBP', 'USD']) used.add(`ccy.${k}`);
+  for (const k of ['lend', 'borrow', 'repayIn', 'repayOut']) used.add(`quick.loan.${k}`);
+  for (const k of ['savings', 'investments', 'both', 'receivables', 'payables']) used.add(`goals.part.${k}`);
   const missing = [];
   for (const k of used) for (const lang of ['en', 'ar']) if (!(k in STRINGS[lang])) missing.push(`${lang}:${k}`);
   assert.deepEqual(missing, []);
@@ -51,7 +53,7 @@ test('no third-party resources, strict CSP present', () => {
   for (const f of appFiles.filter((p) => p.endsWith('.js') || p.endsWith('.css'))) {
     const src = readFileSync(join(root, f), 'utf8');
     for (const m of src.matchAll(/https?:\/\/[^\s'"`)]+/g)) {
-      assert.ok(m[0] === 'http://www.w3.org/2000/svg' || /^https:\/\/(open\.er-api\.com|github\.com\/AhmedFouad-Dentist)/.test(m[0]), `unexpected URL ${m[0]} in ${f}`);
+      assert.ok(m[0] === 'http://www.w3.org/2000/svg' || /^https:\/\/(open\.er-api\.com|github\.com\/AhmedFouad-Dentist|www\.icloud\.com\/shortcuts\/)/.test(m[0]), `unexpected URL ${m[0]} in ${f}`);
     }
     assert.doesNotMatch(src, /\binnerHTML\b|insertAdjacentHTML|document\.write|\beval\(|new Function/, `unsafe DOM/JS API in ${f}`);
   }

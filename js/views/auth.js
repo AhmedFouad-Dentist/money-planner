@@ -8,6 +8,7 @@ import { createInitialState, KNOWN_CURRENCIES } from '../model.js';
 import { formatBridgeLine } from '../sms/parser.js';
 import { goalForm } from './goals.js';
 import { pickBackupFile } from './more.js';
+import { connectScreen } from './connect.js';
 
 const app = () => document.getElementById('app');
 
@@ -135,7 +136,7 @@ export function renderOnboarding(onDone) {
   const draft = { lang: getLang(), currencies: [...KNOWN_CURRENCIES], reportCurrency: null, defaultCurrency: null, goals: [], restored: null };
 
   const steps = { welcome, currencies, goals, pin };
-  const progressDots = (n) => h('div', { class: 'steps', 'aria-hidden': 'true' }, [1, 2, 3].map((i) => h('span', { class: i <= n ? 'on' : '' })));
+  const progressDots = (n) => h('div', { class: 'steps', 'aria-hidden': 'true' }, [1, 2, 3, 4].map((i) => h('span', { class: i <= n ? 'on' : '' })));
 
   function welcome() {
     screen(
@@ -274,7 +275,8 @@ export function renderOnboarding(onDone) {
         if (draft.restored) setLang(state.settings.lang);
         state.settings.lang = getLang();
         await vault.createVault(value, state, { lang: getLang(), theme: state.settings.theme ?? 'system' });
-        onDone(state);
+        // optional last step: Siri and bank messages (skippable)
+        screen(...connectScreen({ onboarding: true, onDone: () => onDone(state) }));
       },
     });
     screen(
@@ -293,26 +295,38 @@ export function renderOnboarding(onDone) {
 
 // ---------------------------------------------------------------- Safari bridge
 // The Shortcut opened the app in Safari, which (on iPhone) has separate storage
-// from the Home Screen app. Show the extracted fields and let the user copy a
-// cleaned one-line summary to paste into the installed app.
-export function renderBridge(result, { onSetupHere }) {
-  const line = result.ok ? formatBridgeLine(result) : null;
+// from the Home Screen app. Show what was understood and let the user copy it
+// to paste into the installed app ("Add from copied message").
+export function renderBridge(pending, { onSetupHere }) {
+  const { kind, result } = pending;
+  const row = (label, value) => h('div', { class: 'row between' }, h('span', { class: 'muted', text: label }), h('span', { text: value }));
+  let summary = null;
+  let copyText = null;
+  if (result.ok && result.kind === 'loan') {
+    summary = [row(t('loans.person'), result.person), row(t('entry.amount'), money(result.amount, result.currency ?? 'XXX')), row(t('common.type'), t(`quick.loan.${result.action}`))];
+    copyText = pending.text;
+  } else if (result.ok) {
+    summary = [
+      row(t('entry.amount'), money(result.amount, result.currency ?? 'XXX')),
+      row(t('entry.merchant'), (kind === 'sms' ? result.merchant : result.item) ?? '—'),
+      row(t('entry.date'), fmtDate(result.date, { year: true })),
+      row(t('common.type'), t(`entry.${result.type}`)),
+    ];
+    // bank messages are never copied as is — only the cleaned fields
+    copyText = kind === 'sms' ? formatBridgeLine(result) : pending.text;
+  }
   screen(
-    langToggle(() => renderBridge(result, { onSetupHere })),
-    h('div', { class: 'welcome' }, logo(), h('h1', { text: t('bridge.title') })),
-    result.ok
+    langToggle(() => renderBridge(pending, { onSetupHere })),
+    h('div', { class: 'welcome' }, logo(), h('h1', { text: t(kind === 'sms' ? 'bridge.title' : 'bridge.titleSay') })),
+    summary
       ? [
-        h('div', { class: 'card' },
-          h('div', { class: 'row between' }, h('span', { class: 'muted', text: t('entry.amount') }), h('strong', { text: money(result.amount, result.currency ?? 'XXX') })),
-          h('div', { class: 'row between' }, h('span', { class: 'muted', text: t('entry.merchant') }), h('span', { text: result.merchant ?? '—' })),
-          h('div', { class: 'row between' }, h('span', { class: 'muted', text: t('entry.date') }), h('span', { text: fmtDate(result.date, { year: true }) })),
-          h('div', { class: 'row between' }, h('span', { class: 'muted', text: t('entry.type') }), h('span', { text: t(`entry.${result.type}`) }))),
+        h('div', { class: 'card' }, summary),
         h('p', { class: 'muted', text: t('bridge.explain') }),
         h('button', {
           class: 'btn primary block', type: 'button',
           onclick: async () => {
             try {
-              await navigator.clipboard.writeText(line);
+              await navigator.clipboard.writeText(copyText);
               toast(t('bridge.copied'), { kind: 'ok', ms: 6000 });
             } catch {
               toast(t('sms.pasteFailed'), { kind: 'warn' });
@@ -320,9 +334,8 @@ export function renderBridge(result, { onSetupHere }) {
           },
         }, t('bridge.copy')),
       ]
-      : h('div', { class: `notice ${result.reason === 'otp' ? 'danger' : ''}` }, h('p', { text: result.reason === 'otp' ? t('sms.otpBody') : t('sms.noAmount') })),
+      : h('div', { class: `notice ${result.reason === 'otp' ? 'danger' : ''}` }, h('p', { text: result.reason === 'otp' ? t('sms.otpBody') : t(kind === 'sms' ? 'sms.noAmount' : 'quick.noAmount') })),
     h('p', { class: 'muted small', text: t('bridge.discarded') }),
     h('button', { class: 'btn ghost block', type: 'button', onclick: onSetupHere }, t('bridge.setupHere')),
   );
 }
-
