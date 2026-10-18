@@ -1,0 +1,7 @@
+node_modules/
+_site/
+.DS_Store
+# Never commit real data or real SMS samples
+*.backup.json
+money-planner-backup-*.json
+samples-private/
