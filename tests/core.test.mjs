@@ -272,3 +272,11 @@ test('loans in net worth and goal progress, with receivables toggle', () => {
   assert.deepEqual(goalBreakdown(g, state), { sources: 5000, receivables: 1500, payables: 500, total: 6000 });
   assert.equal(goalCurrent({ ...g, excludeReceivables: true }, state), 4500);
 });
+
+test('main currency guessed from time zone, then language region', async () => {
+  const { guessMainCurrency } = await import('../js/model.js');
+  assert.equal(guessMainCurrency({ timeZone: 'Asia/Qatar', languages: ['ar-EG'] }), 'QAR');
+  assert.equal(guessMainCurrency({ timeZone: 'Africa/Cairo', languages: ['en-US'] }), 'EGP');
+  assert.equal(guessMainCurrency({ timeZone: 'Asia/Tokyo', languages: ['en-GB'] }), 'GBP');
+  assert.equal(guessMainCurrency({ timeZone: 'Asia/Tokyo', languages: ['ar'] }), 'QAR');
+});

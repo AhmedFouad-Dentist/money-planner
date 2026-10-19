@@ -27,6 +27,7 @@ const ASSETS = [
   'js/icons.js',
   'js/model.js',
   'js/nlp/quicktext.js',
+  'js/quicksave.js',
   'js/rates.js',
   'js/recurring.js',
   'js/store.js',

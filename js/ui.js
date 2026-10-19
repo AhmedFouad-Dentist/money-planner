@@ -89,17 +89,52 @@ export function closeAllSheets() {
 }
 
 // ---------------------------------------------------------------- toast
-export function toast(message, { kind = 'info', ms = 3200, action } = {}) {
+export function toast(message, { kind = 'info', ms = 3200, action, actions } = {}) {
   const root = document.getElementById('toasts');
+  const list = actions ?? (action ? [action] : []);
   const el = h('div', { class: `toast ${kind}`, role: kind === 'error' ? 'alert' : 'status' },
-    h('span', { text: message }),
-    action && h('button', { class: 'link-btn', type: 'button', onclick: () => { action.run(); el.remove(); } }, action.label),
+    h('span', { class: 'toast-text', text: message }),
+    list.length > 0 && h('span', { class: 'toast-actions' }, list.map((a) =>
+      h('button', { class: 'toast-btn', type: 'button', onclick: () => { el.remove(); a.run(); } }, a.label))),
   );
+  // only one toast with Undo/Edit at a time, so the buttons always mean the latest entry
+  if (list.length) root.querySelectorAll('.toast.has-actions').forEach((x) => x.remove());
+  if (list.length) el.classList.add('has-actions');
   root.append(el);
   // keep the screen readable: only the two newest toasts stay
   while (root.children.length > 2) root.firstElementChild.remove();
   setTimeout(() => el.classList.add('out'), ms);
   setTimeout(() => el.remove(), ms + 400);
+  return el;
+}
+
+// Swipe a row sideways (either direction) to delete it.
+export function swipeToDelete(row, onDelete, label) {
+  let x0 = null;
+  let y0 = 0;
+  let dx = 0;
+  row.classList.add('swipeable');
+  row.addEventListener('touchstart', (e) => {
+    x0 = e.touches[0].clientX;
+    y0 = e.touches[0].clientY;
+    dx = 0;
+  }, { passive: true });
+  row.addEventListener('touchmove', (e) => {
+    if (x0 == null) return;
+    dx = e.touches[0].clientX - x0;
+    if (Math.abs(e.touches[0].clientY - y0) > Math.abs(dx)) return;
+    row.style.transform = `translateX(${dx}px)`;
+    row.classList.toggle('swiping', Math.abs(dx) > 30);
+  }, { passive: true });
+  row.addEventListener('touchend', () => {
+    const far = Math.abs(dx) > Math.min(140, row.offsetWidth * 0.35);
+    row.style.transform = '';
+    row.classList.remove('swiping');
+    x0 = null;
+    if (far) onDelete();
+  });
+  row.setAttribute('aria-description', label);
+  return row;
 }
 
 // ---------------------------------------------------------------- confirm

@@ -10,7 +10,7 @@ A private money tracker that runs on your phone: spending, income, budgets, inve
 
 ## What it does
 
-- **Transactions** — income and expenses with amount, currency, category, merchant, date and note. Quick add: tap **+**, type the amount, tap a category — saved. Categories are editable.
+- **Adding is one box** — type `coffee 15` / `قهوة 15` on the Home screen and press Enter: it's saved at once with a guessed category and your currency, and a toast lets you **Undo** or **Edit**. `15 قهوة`, `قهوة ١٥`, `+5000 مرتب` (income), full sentences and loan phrases work too. The app only asks when the amount is missing or unclear. The full form (currency, date, note, category) is still there via Edit or History → +.
 - **Any currencies** — starts with QAR, EGP, GBP and USD; add any 3-letter code. You choose your **main currency** for net worth and reports. Exchange rates are editable, with an optional online update.
 - **Bank SMS** — copy a bank message and tap **Add from copied message** (or send it from an iPhone Shortcut): the app pulls out amount, currency, merchant and date. Nothing else is kept. Messages with one-time passwords or verification codes are refused.
 - **Say it or type it** — “Hey Siri, صرفت” / “Add expense”, or the quick-text box: *“اشتريت قهوة بـ 15 ريال”*, *“I bought groceries for 120 QAR”*, *“got salary 18000 riyal”*. Arabic (Egyptian and standard) and English, Arabic-Indic digits, and words like ألف / ألفين / thousand. You always confirm before anything is saved.
@@ -38,7 +38,9 @@ Every push to `main` runs the tests and, if they pass, redeploys. Open the app o
 1. Open the app address above in **Safari** (it must be Safari).
 2. Tap the **Share** button (square with an arrow) → **Add to Home Screen** → **Add**.
 3. Open **Money Planner** from the Home Screen icon. It now runs full screen and works offline.
-4. First run (about a minute): choose your language, your currencies and main currency, create your goals (or skip), set a 6-digit PIN, then optionally connect Siri and bank messages (skippable — also under More → Siri & bank messages).
+4. First run is one screen: your currency (already picked from your phone's location) and a 4-digit PIN → **Start**. The language follows your phone (Arabic phones start in Arabic; there's a small toggle). Goals, Siri and bank messages are offered later as small cards on Home, and everything is under **More**.
+
+**Using it:** the Home screen has only the input box, what you spent this month, your goal bar (if you set a goal) and your last 5 entries — tap one to edit, swipe it sideways to delete. The bottom bar has three tabs: **Home**, **History** and **More** (goals, investments, loans, everything you own, budgets, report, subscriptions, backup, settings).
 
 > There is no way to recover a forgotten PIN — that's what makes the encryption real. Keep backups.
 
@@ -130,10 +132,10 @@ Rates are stored on your phone and can be edited by hand (More → Currencies & 
 
 ## Security details
 
-- The app state is one JSON document encrypted with **AES-256-GCM** and stored in the browser's IndexedDB on the phone. The key is derived from your 6-digit PIN with **PBKDF2-SHA-256, 600,000 iterations**, and is only kept in memory while unlocked.
+- The app state is one JSON document encrypted with **AES-256-GCM** and stored in the browser's IndexedDB on the phone. The key is derived from your 4-digit PIN (PINs set before this change stay 6 digits) with **PBKDF2-SHA-256, 600,000 iterations**, and is only kept in memory while unlocked.
 - After 5 wrong PINs the app makes you wait (30 s, doubling up to 15 min).
 - The app locks on open, after inactivity (2 minutes by default) and when it has been in the background longer than that.
-- **Honest limits:** a 6-digit PIN protects against someone picking up your phone, and your iPhone's own encryption protects the device; but someone who copied the app's raw storage off an unlocked phone could try all PINs offline. Backups use a separate password — make it long.
+- **Honest limits:** a 4-digit PIN stops someone who picks up your phone (and the wait after wrong tries slows them down), and your iPhone's own encryption protects the device. But there are only 10,000 possible PINs, so someone who copied the app's raw storage off an unlocked phone could try them all offline. Keep a phone passcode, and use a long password for backups — they use their own password, not the PIN.
 - Strict Content-Security-Policy: scripts only from the app itself; the only allowed outside connection is `open.er-api.com`. No analytics, no third-party scripts, no CDN.
 
 ## For developers
@@ -143,6 +145,7 @@ No build step and no dependencies — plain ES modules.
 ```sh
 npm test            # unit tests (Node 20+): SMS + quick-text parsers, money maths, loans, encryption, PWA checks
 npm run serve       # http://localhost:8080
+npm run e2e         # browser test on a simulated iPhone (needs Playwright; BASE=<url> tests the live site)
 npm run icons       # regenerate icons/*.png
 ```
 
@@ -175,7 +178,7 @@ npm run icons       # regenerate icons/*.png
 
 ## ماذا يفعل
 
-- **المعاملات** — دخل ومصروفات بالمبلغ والعملة والفئة والتاجر والتاريخ وملاحظة. إضافة سريعة: اضغط **+** واكتب المبلغ واضغط فئة — تم الحفظ. الفئات قابلة للتعديل.
+- **الإضافة مربع واحد** — اكتب `قهوة 15` في الشاشة الرئيسية ودوس Enter: يتسجّل فورًا بقسم متخمَّن وعملتك، ويظهر تنبيه فيه **تراجع** أو **تعديل**. وكمان `15 قهوة` و`قهوة ١٥` و`+5000 مرتب` (دخل) والجمل الكاملة وجمل السلف. التطبيق بيسأل بس لو المبلغ ناقص أو مش واضح. والشكل الكامل (العملة والتاريخ والملاحظة والقسم) موجود من «تعديل» أو السجل ← +.
 - **أي عملات** — يبدأ بالريال القطري والجنيه المصري والجنيه الإسترليني والدولار، ويمكنك إضافة أي رمز من 3 أحرف. أنت تختار **العملة الرئيسية** لصافي الثروة والتقارير. أسعار الصرف قابلة للتعديل مع تحديث اختياري عبر الإنترنت.
 - **رسائل البنك** — انسخ رسالة البنك واضغط **إضافة من رسالة منسوخة** (أو أرسلها من اختصار iPhone) فيستخرج التطبيق المبلغ والعملة والتاجر والتاريخ فقط. رسائل رموز التحقق وكلمات المرور لمرة واحدة تُرفض.
 - **قُلها أو اكتبها** — «يا Siri، صرفت» أو مربع الإضافة السريعة: *«اشتريت قهوة بـ 15 ريال»*، *«دفعت إيجار 3000 جنيه»*، *«I bought groceries for 120 QAR»*. بالعربية (المصرية والفصحى) والإنجليزية، مع الأرقام العربية وكلمات مثل ألف وألفين. تراجع دائمًا قبل الحفظ.
@@ -201,7 +204,9 @@ npm run icons       # regenerate icons/*.png
 1. افتح الرابط في **Safari** (لازم Safari).
 2. اضغط زر **المشاركة** (المربع والسهم) ← **إضافة إلى الشاشة الرئيسية** ← **إضافة**.
 3. افتح **مخطط المال** من أيقونة الشاشة الرئيسية.
-4. أول مرة (دقيقة تقريبًا): اختر اللغة والعملات والعملة الرئيسية، وأنشئ أهدافك (أو تخطَّ)، واختر رمزًا سريًا من 6 أرقام، ثم اربط Siri ورسائل البنك إن أردت (يمكن تخطيه — وموجود أيضًا في المزيد ← Siri ورسائل البنك).
+4. أول مرة شاشة واحدة: عملتك (متختارة من مكان موبايلك) ورقم سري من 4 أرقام ← **يلا نبدأ**. اللغة زي لغة الموبايل (وفيه زرار صغير للتغيير). الأهداف وSiri ورسائل البنك بتظهر بعدين ككروت صغيرة في الرئيسية، وكل حاجة موجودة في **المزيد**.
+
+**الاستخدام:** الرئيسية فيها مربع الكتابة، وصرفت قد إيه الشهر ده، وشريط الهدف (لو حطيت هدف)، وآخر 5 حاجات — دوس على أي واحدة للتعديل واسحبها للمسح. الشريط تحت فيه 3 بس: **الرئيسية** و**السجل** و**المزيد**.
 
 > لا توجد طريقة لاسترجاع رمز منسي — وهذا ما يجعل التشفير حقيقيًا. احتفظ بنسخ احتياطية.
 
@@ -286,10 +291,10 @@ npm run icons       # regenerate icons/*.png
 
 ## تفاصيل الأمان
 
-- بيانات التطبيق مشفّرة بـ **AES-256-GCM** ومخزّنة في IndexedDB على الهاتف. المفتاح مشتق من الرمز السري المكوّن من 6 أرقام عبر **PBKDF2-SHA-256 بـ 600,000 تكرار** ولا يبقى إلا في الذاكرة أثناء الفتح.
+- بيانات التطبيق مشفّرة بـ **AES-256-GCM** ومخزّنة في IndexedDB على الهاتف. المفتاح مشتق من الرمز السري المكوّن من 4 أرقام (الرموز القديمة المكوّنة من 6 أرقام تفضل زي ما هي) عبر **PBKDF2-SHA-256 بـ 600,000 تكرار** ولا يبقى إلا في الذاكرة أثناء الفتح.
 - بعد 5 محاولات خاطئة ينتظر التطبيق (30 ثانية تتضاعف حتى 15 دقيقة).
 - يُقفل التطبيق عند الفتح، وبعد عدم النشاط (دقيقتان افتراضيًا)، وعند العودة من الخلفية بعد هذه المدة.
-- **بصراحة:** الرمز من 6 أرقام يحمي من شخص يلتقط هاتفك، وتشفير iPhone نفسه يحمي الجهاز؛ لكن من ينسخ التخزين الخام للتطبيق من هاتف مفتوح قد يجرّب كل الرموز. النسخ الاحتياطية تستخدم كلمة مرور منفصلة — اجعلها طويلة.
+- **بصراحة:** الرقم السري من 4 أرقام بيمنع أي حد يمسك موبايلك (والانتظار بعد المحاولات الغلط بيبطّأه)، وتشفير الآيفون نفسه بيحمي الجهاز. لكن فيه 10,000 احتمال بس، فلو حد نسخ تخزين التطبيق من موبايل مفتوح يقدر يجرّبهم كلهم. خلّي للموبايل رمز قفل، واستخدم كلمة سر طويلة للنسخ الاحتياطية — ليها كلمة سر خاصة غير الرقم السري.
 - سياسة أمان محتوى صارمة: لا أكواد إلا من التطبيق نفسه، والاتصال الخارجي الوحيد المسموح هو `open.er-api.com`. لا إحصاءات ولا أكواد خارجية.
 
 </div>

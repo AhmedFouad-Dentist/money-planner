@@ -3,7 +3,9 @@
 import { dbGet, dbSet, dbSetMany, dbClear } from './db.js';
 import { deriveKey, encryptJSON, decryptJSON, randomBytes, PBKDF2_ITERATIONS } from './crypto.js';
 
-export const PIN_LENGTH = 6;
+export const PIN_LENGTH = 4;
+// PINs made before the 4-digit change were 6 digits; they keep working.
+export const pinLengthOf = (meta) => meta?.pinLength ?? 6;
 const FREE_ATTEMPTS = 5;
 
 let key = null;
@@ -16,7 +18,7 @@ export async function createVault(pin, state, prefs) {
   key = await deriveKey(pin, salt, PBKDF2_ITERATIONS);
   await dbSetMany({
     vault: await encryptJSON(key, state),
-    meta: { v: 1, salt, iterations: PBKDF2_ITERATIONS, failed: 0, lockedUntil: 0, ...prefs },
+    meta: { v: 1, salt, iterations: PBKDF2_ITERATIONS, failed: 0, lockedUntil: 0, pinLength: pin.length, ...prefs },
   });
 }
 
@@ -70,7 +72,7 @@ export async function changePin(newPin, state) {
   const k = await deriveKey(newPin, salt, PBKDF2_ITERATIONS);
   await dbSetMany({
     vault: await encryptJSON(k, state),
-    meta: { ...meta, salt, iterations: PBKDF2_ITERATIONS, failed: 0, lockedUntil: 0 },
+    meta: { ...meta, salt, iterations: PBKDF2_ITERATIONS, failed: 0, lockedUntil: 0, pinLength: newPin.length },
   });
   key = k;
 }

@@ -1,7 +1,7 @@
 import { h, card, progress, openSheet, field, segmented, select, numberInput, readNumber, toast, confirmDialog, emptyState } from '../ui.js';
 import { t, money, pct, fmtDate, nameOf } from '../i18n.js';
 import { update } from '../store.js';
-import { newGoal } from '../model.js';
+import { newGoal, uid } from '../model.js';
 import { goalBreakdown, goalPlan, goalMonthlyRate, goalSources } from '../finance.js';
 import { S, today } from './common.js';
 
@@ -105,10 +105,9 @@ export function goalForm(goal, { currencyOptions, defaultCurrency, accounts = []
   showPickers();
   const countReceivables = h('input', { type: 'checkbox', checked: !d.excludeReceivables });
 
-  const el = h('div', { class: 'stack' },
-    field(t('goals.name'), name),
-    h('div', { class: 'row gap' }, field(t('goals.target'), target), field(t('entry.currency'), ccy)),
-    field(t('goals.targetDate'), date, t('goals.targetDateHint')),
+  // for a new goal: "how much have you saved already?" → a savings account
+  const saved = !goal && numberInput('', { placeholder: '0' });
+  const advanced = h('div', { class: 'stack', hidden: true },
     h('span', { class: 'field-label', text: t('goals.fundedBy') }),
     segmented(['savings', 'investments', 'both'].map((m) => ({ value: m, label: t(`goals.fundingShort.${m}`) })), d.funding, (v) => { d.funding = v; showPickers(); }),
     h('p', { class: 'muted small', text: t('goals.fundingHint') }),
@@ -116,6 +115,21 @@ export function goalForm(goal, { currencyOptions, defaultCurrency, accounts = []
     holPicker.wrap,
     h('label', { class: 'check-row' }, countReceivables, h('span', { text: t('goals.countReceivables') })),
     h('p', { class: 'muted small', text: t('goals.loansHint') }),
+  );
+  const moreBtn = h('button', {
+    class: 'link-btn', type: 'button',
+    onclick: () => {
+      advanced.hidden = !advanced.hidden;
+      moreBtn.textContent = advanced.hidden ? t('goals.moreOptions') : t('goals.fewerOptions');
+    },
+  }, t('goals.moreOptions'));
+  const el = h('div', { class: 'stack' },
+    field(t('goals.name'), name),
+    h('div', { class: 'row gap' }, field(t('goals.target'), target), field(t('entry.currency'), ccy)),
+    saved && field(t('goals.savedSoFar'), saved, t('goals.savedSoFarHint')),
+    field(t('goals.targetDate'), date, t('goals.targetDateHint')),
+    moreBtn,
+    advanced,
   );
 
   const read = () => {
@@ -130,7 +144,8 @@ export function goalForm(goal, { currencyOptions, defaultCurrency, accounts = []
       target.focus();
       return null;
     }
-    return newGoal({ ...d, name: name.value.trim(), target: amount, targetDate: date.value || null, accounts: accPicker.read(), holdings: holPicker.read(), excludeReceivables: !countReceivables.checked });
+    const g = newGoal({ ...d, name: name.value.trim(), target: amount, targetDate: date.value || null, accounts: accPicker.read(), holdings: holPicker.read(), excludeReceivables: !countReceivables.checked });
+    return { goal: g, savedSoFar: saved ? readNumber(saved.value) || 0 : 0 };
   };
   return { el, read, focus: () => name.focus() };
 }
@@ -160,12 +175,19 @@ export function openGoalEditor(goal) {
         h('button', {
           class: 'btn primary grow', type: 'button',
           onclick: () => {
-            const g = form.read();
-            if (!g) return;
+            const res = form.read();
+            if (!res) return;
+            const { goal: g, savedSoFar } = res;
             update((s) => {
               const i = s.goals.findIndex((x) => x.id === g.id);
               if (i >= 0) s.goals[i] = g;
               else s.goals.push(g);
+              if (savedSoFar > 0) {
+                if (g.funding === 'investments') g.funding = 'both';
+                const acc = { id: uid(), name: t('goals.savingsAccountName'), currency: g.currency, balance: savedSoFar, updatedAt: today() };
+                s.accounts.push(acc);
+                if (Array.isArray(g.accounts)) g.accounts.push(acc.id);
+              }
             });
             sheet.close();
           },

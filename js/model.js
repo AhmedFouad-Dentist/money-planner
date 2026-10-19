@@ -21,6 +21,29 @@ export function startingRates(base, codes = Object.keys(APPROX_PER_USD)) {
 // Fixed categorical order (validated palette); a category keeps its colour.
 export const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
 
+// Main currency guessed from where the phone is (time zone first, then the
+// region in the language setting), e.g. Asia/Qatar → QAR, ar-EG → EGP.
+const ZONE_CURRENCY = {
+  'Asia/Qatar': 'QAR', 'Africa/Cairo': 'EGP', 'Europe/London': 'GBP', 'Asia/Riyadh': 'SAR', 'Asia/Dubai': 'AED', 'Asia/Kuwait': 'KWD',
+  'America/New_York': 'USD', 'America/Chicago': 'USD', 'America/Denver': 'USD', 'America/Los_Angeles': 'USD',
+};
+const REGION_CURRENCY = { QA: 'QAR', EG: 'EGP', GB: 'GBP', SA: 'SAR', AE: 'AED', KW: 'KWD', US: 'USD', DE: 'EUR', FR: 'EUR', IE: 'EUR', IT: 'EUR', ES: 'EUR', NL: 'EUR' };
+
+export function guessMainCurrency({ timeZone, languages } = {}) {
+  try {
+    timeZone ??= Intl.DateTimeFormat().resolvedOptions().timeZone;
+    languages ??= globalThis.navigator?.languages ?? [globalThis.navigator?.language].filter(Boolean);
+  } catch {
+    /* use what we have */
+  }
+  if (ZONE_CURRENCY[timeZone]) return ZONE_CURRENCY[timeZone];
+  for (const l of languages ?? []) {
+    const region = /[-_]([A-Z]{2})\b/i.exec(l)?.[1]?.toUpperCase();
+    if (REGION_CURRENCY[region]) return REGION_CURRENCY[region];
+  }
+  return 'QAR';
+}
+
 export function uid() {
   const b = globalThis.crypto.getRandomValues(new Uint8Array(9));
   return [...b].map((x) => x.toString(36).padStart(2, '0')).join('').slice(0, 14);

@@ -1,14 +1,12 @@
-// Lock screen, first-run onboarding, and the "opened in Safari" SMS bridge.
+// Lock screen, one-screen setup, and the "opened in Safari" bridge.
 
 import { h, clear, toast, field, confirmDialog } from '../ui.js';
 import { icon } from '../icons.js';
 import { t, setLang, getLang, money, fmtDate } from '../i18n.js';
 import * as vault from '../vault.js';
-import { createInitialState, KNOWN_CURRENCIES } from '../model.js';
+import { createInitialState, KNOWN_CURRENCIES, APPROX_PER_USD, guessMainCurrency } from '../model.js';
 import { formatBridgeLine } from '../sms/parser.js';
-import { goalForm } from './goals.js';
 import { pickBackupFile } from './more.js';
-import { connectScreen } from './connect.js';
 
 const app = () => document.getElementById('app');
 
@@ -84,6 +82,7 @@ function pinPad({ onComplete, length = vault.PIN_LENGTH }) {
 // ---------------------------------------------------------------- lock
 export async function renderLock(onUnlocked) {
   const meta = await vault.getMeta();
+  const length = vault.pinLengthOf(meta);
   const msg = h('p', { class: 'lock-msg', role: 'status' });
   let timer = null;
   const showWait = () => {
@@ -97,6 +96,7 @@ export async function renderLock(onUnlocked) {
     timer = setInterval(tick, 1000);
   };
   const pad = pinPad({
+    length,
     onComplete: async (pin) => {
       const m = await vault.getMeta();
       if (vault.waitSeconds(m) > 0) return showWait();
@@ -131,166 +131,62 @@ async function forgotPin() {
   location.reload();
 }
 
-// ---------------------------------------------------------------- onboarding
+// ---------------------------------------------------------------- setup
+// One screen: main currency (guessed from the phone) + a 4-digit PIN + Start.
+// Goals, other currencies, Siri etc. are offered later on the Home screen.
 export function renderOnboarding(onDone) {
-  const draft = { lang: getLang(), currencies: [...KNOWN_CURRENCIES], reportCurrency: null, defaultCurrency: null, goals: [], restored: null };
+  let restored = null;
+  let currency = guessMainCurrency();
 
-  const steps = { welcome, currencies, goals, pin };
-  const progressDots = (n) => h('div', { class: 'steps', 'aria-hidden': 'true' }, [1, 2, 3, 4].map((i) => h('span', { class: i <= n ? 'on' : '' })));
+  function draw() {
+    const options = [...new Set([currency, ...KNOWN_CURRENCIES, ...Object.keys(APPROX_PER_USD)])];
+    const ccy = h('select', { class: 'big-select', 'aria-label': t('setup.currency'), onchange: () => (currency = ccy.value) },
+      options.map((c) => h('option', { value: c, selected: c === currency }, ccyLabel(c))));
+    const pin = h('input', {
+      type: 'text', inputmode: 'numeric', pattern: '[0-9]*', maxlength: vault.PIN_LENGTH, autocomplete: 'off',
+      class: 'pin-boxes', 'aria-label': t('setup.pin'), placeholder: '••••',
+    });
+    const start = h('button', { class: 'btn primary block huge', type: 'button', disabled: true }, t('setup.start'));
+    pin.addEventListener('input', () => {
+      pin.value = pin.value.replace(/[\u0660-\u0669]/g, (d) => d.charCodeAt(0) - 0x660).replace(/\D/g, '').slice(0, vault.PIN_LENGTH);
+      start.disabled = pin.value.length !== vault.PIN_LENGTH;
+    });
+    pin.addEventListener('keydown', (e) => e.key === 'Enter' && !start.disabled && start.click());
+    start.addEventListener('click', async () => {
+      start.disabled = true;
+      start.textContent = t('onb.creating');
+      const state = restored ?? createInitialState({
+        lang: getLang(),
+        currencies: [...new Set([currency, ...KNOWN_CURRENCIES])],
+        reportCurrency: currency,
+        defaultCurrency: currency,
+      });
+      if (restored) setLang(state.settings.lang);
+      state.settings.lang = getLang();
+      await vault.createVault(pin.value, state, { lang: getLang(), theme: state.settings.theme ?? 'system' });
+      onDone(state);
+    });
 
-  function welcome() {
     screen(
-      langToggle(() => welcome()),
-      h('div', { class: 'welcome' }, logo(), h('h1', { text: t('app.name') }), h('p', { class: 'lead', text: t('onb.tagline') })),
-      h('ul', { class: 'bullets' }, ['onb.p1', 'onb.p2', 'onb.p3', 'onb.p4'].map((k) => h('li', { text: t(k) }))),
-      h('button', { class: 'btn primary block', type: 'button', onclick: () => steps.currencies() }, t('onb.start')),
-      h('button', {
-        class: 'btn ghost block', type: 'button',
-        onclick: () => pickBackupFile((state) => {
-          draft.restored = state;
-          steps.pin();
+      langToggle(() => draw()),
+      h('div', { class: 'welcome' }, logo(), h('h1', { text: t('app.name') }), h('p', { class: 'lead', text: t('setup.tagline') })),
+      restored
+        ? h('p', { class: 'pos center', text: t('onb.restoredReady', { tx: restored.transactions.length }) })
+        : field(t('setup.currency'), ccy),
+      field(t('setup.pin'), pin, t('setup.pinHint')),
+      start,
+      !restored && h('button', {
+        class: 'link-btn center-block', type: 'button',
+        onclick: () => pickBackupFile((st) => {
+          restored = st;
+          draw();
         }),
       }, t('onb.restore')),
-      h('p', { class: 'muted small center', text: t('about.disclaimerShort') }),
+      h('p', { class: 'muted small center', text: t('setup.privacy') }),
     );
+    if (!restored) ccy.blur();
   }
-
-  function currencies() {
-    const extra = draft.currencies.filter((c) => !KNOWN_CURRENCIES.includes(c));
-    const boxes = [...KNOWN_CURRENCIES, ...extra].map((c) => ({ c, cb: h('input', { type: 'checkbox', checked: draft.currencies.includes(c) }) }));
-    const reportSel = h('select', { 'aria-label': t('onb.reportCurrency') });
-    const defaultSel = h('select', { 'aria-label': t('onb.spendCurrency') });
-    const chosen = () => boxes.filter((b) => b.cb.checked).map((b) => b.c);
-    const refill = () => {
-      const list = chosen();
-      for (const [sel, key] of [[reportSel, 'reportCurrency'], [defaultSel, 'defaultCurrency']]) {
-        const keep = list.includes(sel.value) ? sel.value : list.includes(draft[key]) ? draft[key] : list[0];
-        sel.replaceChildren(...list.map((c) => h('option', { value: c, selected: c === keep }, c)));
-      }
-    };
-    boxes.forEach((b) => b.cb.addEventListener('change', refill));
-    const code = h('input', { type: 'text', maxlength: 3, placeholder: 'EUR', class: 'code-input', autocapitalize: 'characters', 'aria-label': t('rates.code') });
-    screen(
-      progressDots(1),
-      h('h1', { text: t('onb.currenciesTitle') }),
-      h('p', { class: 'muted', text: t('onb.currenciesIntro') }),
-      h('div', { class: 'checklist grid2' }, boxes.map((b) => h('label', { class: 'check-row' }, b.cb, h('span', { text: ccyLabel(b.c) })))),
-      h('div', { class: 'row gap' }, code, h('button', {
-        class: 'btn ghost', type: 'button',
-        onclick: () => {
-          const c = code.value.trim().toUpperCase();
-          if (!/^[A-Z]{3}$/.test(c)) return toast(t('rates.badCode'), { kind: 'warn' });
-          draft.currencies = [...new Set([...chosen(), c])];
-          currencies();
-        },
-      }, t('onb.addCurrency'))),
-      field(t('onb.reportCurrency'), reportSel, t('onb.reportHint')),
-      field(t('onb.spendCurrency'), defaultSel, t('onb.spendHint')),
-      h('div', { class: 'row gap' },
-        h('button', { class: 'btn ghost', type: 'button', onclick: () => steps.welcome() }, t('common.back')),
-        h('button', {
-          class: 'btn primary grow', type: 'button',
-          onclick: () => {
-            const list = chosen();
-            if (!list.length) return toast(t('onb.needCurrency'), { kind: 'warn' });
-            draft.currencies = list;
-            draft.reportCurrency = reportSel.value;
-            draft.defaultCurrency = defaultSel.value;
-            steps.goals();
-          },
-        }, t('common.next'))),
-    );
-    refill();
-  }
-
-  function goals() {
-    const form = goalForm(null, {
-      currencyOptions: draft.currencies.map((c) => ({ value: c, label: c })),
-      defaultCurrency: draft.reportCurrency,
-    });
-    const added = draft.goals.length
-      ? h('div', { class: 'card' }, h('p', { class: 'muted small', text: t('onb.goalsAdded') }),
-        draft.goals.map((g) => h('div', { class: 'row between' },
-          h('span', { text: `🎯 ${g.name}` }),
-          h('span', { class: 'muted', text: `${money(g.target, g.currency, { decimals: 0 })}${g.targetDate ? ` · ${fmtDate(g.targetDate, { year: true })}` : ''}` }))))
-      : null;
-    screen(
-      progressDots(2),
-      h('h1', { text: t('onb.goalsTitle') }),
-      h('p', { class: 'muted', text: t('onb.goalsIntro') }),
-      added,
-      h('div', { class: 'card' }, form.el,
-        h('button', {
-          class: 'btn ghost block', type: 'button',
-          onclick: () => {
-            const g = form.read();
-            if (!g) return;
-            draft.goals.push(g);
-            goals();
-          },
-        }, t('onb.addAnother'))),
-      h('div', { class: 'row gap' },
-        h('button', { class: 'btn ghost', type: 'button', onclick: () => steps.currencies() }, t('common.back')),
-        h('button', {
-          class: 'btn primary grow', type: 'button',
-          onclick: () => {
-            const g = form.read();
-            if (!g) return;
-            draft.goals.push(g);
-            steps.pin();
-          },
-        }, t('onb.saveGoal'))),
-      h('button', { class: 'link-btn center-block', type: 'button', onclick: () => steps.pin() }, draft.goals.length ? t('onb.continueGoals') : t('onb.skipGoals')),
-    );
-  }
-
-  function pin() {
-    let first = null;
-    const title = h('h1', { text: t('onb.pinTitle') });
-    const sub = h('p', { class: 'muted', text: t('onb.pinHint', { n: vault.PIN_LENGTH }) });
-    const msg = h('p', { class: 'lock-msg', role: 'status' });
-    const pad = pinPad({
-      onComplete: async (value) => {
-        if (!first) {
-          first = value;
-          title.textContent = t('onb.pinAgain');
-          msg.textContent = '';
-          return;
-        }
-        if (value !== first) {
-          first = null;
-          pad.shake();
-          title.textContent = t('onb.pinTitle');
-          msg.textContent = t('onb.pinMismatch');
-          return;
-        }
-        msg.textContent = t('onb.creating');
-        const state = draft.restored ?? createInitialState({
-          lang: getLang(),
-          currencies: draft.currencies,
-          reportCurrency: draft.reportCurrency,
-          defaultCurrency: draft.defaultCurrency,
-          goals: draft.goals,
-        });
-        if (draft.restored) setLang(state.settings.lang);
-        state.settings.lang = getLang();
-        await vault.createVault(value, state, { lang: getLang(), theme: state.settings.theme ?? 'system' });
-        // optional last step: Siri and bank messages (skippable)
-        screen(...connectScreen({ onboarding: true, onDone: () => onDone(state) }));
-      },
-    });
-    screen(
-      progressDots(3),
-      h('div', { class: 'lock-top' }, title, sub),
-      draft.restored && h('p', { class: 'pos small center', text: t('onb.restoredReady', { tx: draft.restored.transactions.length }) }),
-      pad.el,
-      msg,
-      h('p', { class: 'muted small center', text: t('onb.pinWarning') }),
-      h('button', { class: 'link-btn center-block', type: 'button', onclick: () => (draft.restored ? steps.welcome() : steps.goals()) }, t('common.back')),
-    );
-  }
-
-  welcome();
+  draw();
 }
 
 // ---------------------------------------------------------------- Safari bridge

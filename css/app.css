@@ -26,7 +26,7 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 4px 16px rgba(0, 0, 0, .05);
   --radius: 16px;
   --top-h: 52px;
-  --tab-h: 58px;
+  --tab-h: 64px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
@@ -85,7 +85,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Arabic", "Segoe UI", system-ui, "Noto Sans Arabic", Tahoma, sans-serif;
+  font: 17px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Arabic", "Segoe UI", system-ui, "Noto Sans Arabic", Tahoma, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
@@ -132,13 +132,13 @@ button { cursor: pointer; }
 .topbar-title { flex: 1; font-size: 1.1rem; font-weight: 700; padding-inline: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar-actions { display: flex; gap: 2px; }
 .main {
-  padding: calc(var(--top-h) + var(--safe-t) + 12px) calc(14px + var(--safe-r)) calc(var(--tab-h) + var(--safe-b) + 90px) calc(14px + var(--safe-l));
+  padding: calc(var(--top-h) + var(--safe-t) + 12px) calc(16px + var(--safe-r)) calc(var(--tab-h) + var(--safe-b) + 28px) calc(16px + var(--safe-l));
   max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px;
   outline: none;
 }
 .tabbar {
   position: fixed; inset-inline: 0; bottom: 0; z-index: 20;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(3, 1fr);
   padding: 4px var(--safe-r) var(--safe-b) var(--safe-l);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px);
@@ -146,7 +146,7 @@ button { cursor: pointer; }
 }
 .tab {
   height: var(--tab-h); border: 0; background: none; color: var(--muted);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: .7rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: .85rem;
 }
 .tab.on { color: var(--accent); font-weight: 600; }
 .fab {
@@ -189,7 +189,7 @@ button { cursor: pointer; }
 .tiles.three .tile-value { font-size: .95rem; }
 .list { display: flex; flex-direction: column; }
 .list-row {
-  display: flex; align-items: center; gap: 12px; padding: 10px 2px; min-height: 52px;
+  display: flex; align-items: center; gap: 12px; padding: 12px 2px; min-height: 60px;
   border: 0; border-bottom: 1px solid var(--line); background: none; width: 100%; text-align: start; color: inherit;
 }
 .list > .list-row:last-child { border-bottom: 0; }
@@ -242,7 +242,7 @@ button { cursor: pointer; }
 
 /* ------------------------------------------------------------ buttons & forms */
 .btn {
-  min-height: 46px; border-radius: 12px; border: 1px solid transparent; padding: 0 16px; font-weight: 650;
+  min-height: 52px; border-radius: 12px; border: 1px solid transparent; padding: 0 16px; font-weight: 650;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; text-align: center;
 }
 .btn.block { width: 100%; }
@@ -320,7 +320,7 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 
 /* ------------------------------------------------------------ toasts */
 #toasts {
-  position: fixed; z-index: 60; inset-inline: 12px; top: calc(var(--safe-t) + 10px);
+  position: fixed; z-index: 60; inset-inline: 12px; bottom: calc(var(--tab-h) + var(--safe-b) + 12px);
   display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none;
 }
 .toast {
@@ -333,8 +333,10 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .toast.warn { background: #7a4f00; color: #fff; }
 .toast.error { background: #9c1f1f; color: #fff; }
 .toast .link-btn { color: inherit; text-decoration: underline; }
-.toast.out { opacity: 0; transform: translateY(-8px); }
-@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
+.toast.out { opacity: 0; transform: translateY(8px); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+/* over a sheet or a full screen, toasts go to the top so they don't cover buttons */
+body:has(.sheet-wrap) #toasts, body:has(#app.fullscreen) #toasts { bottom: auto; top: calc(var(--safe-t) + 10px); }
 
 /* ------------------------------------------------------------ full-screen (lock, onboarding) */
 .fullscreen { min-height: 100vh; min-height: 100dvh; }
@@ -397,6 +399,7 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
   .checklist.grid2 { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 350px) {
+  .quick-input { font-size: 1.25rem !important; }
   .cat-grid { grid-template-columns: repeat(3, 1fr); }
   .keypad { grid-template-columns: repeat(3, 68px); gap: 12px 18px; }
   .key { width: 68px; height: 68px; }
@@ -439,3 +442,55 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .phone-toggle { width: 20px; height: 12px; border-radius: 6px; background: var(--good); position: relative; flex: none; }
 .phone-toggle::after { content: ""; position: absolute; top: 1px; inset-inline-end: 1px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
 .phone-footer { margin-top: auto; text-align: center; color: var(--muted); }
+
+/* ------------------------------------------------------------ simple Home */
+.quick-box { display: flex; flex-direction: column; gap: 8px; }
+.quick-row { display: flex; gap: 10px; align-items: stretch; }
+.quick-input {
+  flex: 1; min-width: 0; min-height: 68px !important; font-size: 1.5rem !important; font-weight: 600;
+  border-radius: 18px !important; border: 2px solid var(--accent) !important; background: var(--surface) !important; padding: 0 18px !important;
+}
+.quick-input::placeholder { color: var(--muted); font-weight: 500; }
+.quick-go {
+  width: 68px; flex: none; border: 0; border-radius: 18px; background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center; box-shadow: 0 4px 14px rgba(0, 0, 0, .15);
+}
+.quick-go:active { transform: scale(.96); }
+.quick-hint { margin: 0; font-size: .9rem; color: var(--muted); text-align: center; }
+.small-btn { min-height: 44px !important; font-size: .95rem; font-weight: 600; align-self: center; padding: 0 16px; }
+.spent { border: 0; background: none; padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; color: inherit; }
+.spent-label { color: var(--muted); font-size: 1rem; }
+.spent-value { font-size: 2.8rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.goal-bar { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; text-align: start; width: 100%; color: inherit; }
+.goal-bar .progress { height: 14px; }
+.first-hint { padding: 24px 8px; font-size: 1.05rem; }
+.offer { flex-direction: row; align-items: center; gap: 12px; }
+.offer-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.offer-actions { display: flex; align-items: center; gap: 4px; }
+.offer-actions .btn { min-height: 44px; padding: 0 14px; }
+.big-list .list-row { min-height: 64px; font-size: 1.05rem; }
+.big-list .row-icon { width: 42px; height: 42px; font-size: 1.35rem; }
+.history-sum { display: flex; gap: 18px; justify-content: center; color: var(--text-2); }
+.swipeable { transition: transform .18s ease, background .18s; touch-action: pan-y; }
+.swipeable.swiping { background: var(--danger-bg); transition: background .18s; }
+
+/* toasts with two actions */
+.toast-text { flex: 1; }
+.toast-actions { display: flex; gap: 4px; flex: none; }
+.toast-btn { border: 0; background: rgba(255, 255, 255, .18); color: inherit; font-weight: 700; border-radius: 10px; min-height: 40px; padding: 0 12px; }
+
+/* one-screen setup and PIN */
+.big-select { min-height: 56px !important; font-size: 1.15rem !important; font-weight: 600; }
+.pin-boxes {
+  min-height: 72px !important; font-size: 2.2rem !important; font-weight: 700; text-align: center; letter-spacing: .6em;
+  direction: ltr; padding-inline-start: .6em !important;
+}
+.btn.huge { min-height: 64px; font-size: 1.25rem; border-radius: 16px; }
+.keypad { grid-template-columns: repeat(3, 84px); gap: 16px 26px; }
+.key { width: 84px; height: 84px; font-size: 2.1rem; }
+.pin-dots .dot { width: 18px; height: 18px; }
+@media (max-width: 360px) {
+  .keypad { grid-template-columns: repeat(3, 72px); gap: 12px 20px; }
+  .key { width: 72px; height: 72px; }
+  .spent-value { font-size: 2.3rem; }
+}

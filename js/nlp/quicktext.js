@@ -200,11 +200,17 @@ export function parseQuickText(raw, { defaultCurrency = null, now = new Date() }
   const base = normalizeText(raw);
   if (!base) return { ok: false, reason: 'empty' };
   if (isOtpMessage(base)) return { ok: false, reason: 'otp' };
-  const f = fold(base).replace(/\n/g, ' ');
+  // "+5000 مرتب" = income, "-20 taxi" = expense. The sign is blanked out
+  // (not removed) so positions still line up with the original text.
+  const signRe = /(^|\s)([+\-−])(?=\s*\d)/;
+  const sign = signRe.exec(fold(base))?.[2] ?? null;
+  const f = fold(base).replace(/\n/g, ' ').replace(new RegExp(signRe.source, 'g'), '$1 ');
 
   const tokens = tokenize(f);
   const amt = findAmount(tokens);
   if (!amt) return { ok: false, reason: 'no_amount' };
+  // a second, separate number ("2 قهوة 30") means we can't be sure which is the price
+  const ambiguous = !!findAmount(tokens.slice(amt.end));
 
   const cur = findCurrency(f);
   const currency = cur?.code ?? defaultCurrency ?? null;
@@ -219,10 +225,10 @@ export function parseQuickText(raw, { defaultCurrency = null, now = new Date() }
     // recover the original spelling of the name (folding keeps positions)
     const start = f.indexOf(nameFolded, m.index);
     const person = base.replace(/\n/g, ' ').slice(start, start + nameFolded.length);
-    return { ok: true, kind: 'loan', action: p.action, person: capitalize(person), amount, currency, currencyGuessed: !cur, date };
+    return { ok: true, kind: 'loan', action: p.action, person: capitalize(person), amount, currency, currencyGuessed: !cur, date, ambiguous };
   }
 
-  const isIncome = INCOME_RE.test(f) && !(EXPENSE_RE.exec(f)?.index < INCOME_RE.exec(f).index);
+  const isIncome = sign === '+' || (sign !== '-' && sign !== '−' && INCOME_RE.test(f) && !(EXPENSE_RE.exec(f)?.index < INCOME_RE.exec(f).index));
   const type = isIncome ? 'income' : 'expense';
 
   // item = what's left after removing the amount, currency and filler words
@@ -234,7 +240,7 @@ export function parseQuickText(raw, { defaultCurrency = null, now = new Date() }
 
   return {
     ok: true, kind: 'tx', type, amount, currency, currencyGuessed: !cur,
-    item, categoryId: guessCategory(base, type), date,
+    item, categoryId: guessCategory(base, type), date, ambiguous,
   };
 }
 

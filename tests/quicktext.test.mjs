@@ -80,3 +80,21 @@ test('guessCategory on its own', () => {
   assert.equal(guessCategory('عيدية', 'income'), 'gift');
   assert.equal(guessCategory('something else', 'expense'), null);
 });
+
+test('short forms typed on the Home box', () => {
+  tx('قهوة 15', { type: 'expense', amount: 15, currency: 'QAR', item: 'قهوة', categoryId: 'dining', ambiguous: false });
+  tx('15 قهوة', { type: 'expense', amount: 15, item: 'قهوة', categoryId: 'dining' });
+  tx('قهوة ١٥', { amount: 15, item: 'قهوة' });
+  tx('coffee 15', { amount: 15, item: 'coffee', categoryId: 'dining', currencyGuessed: true });
+  tx('+5000 مرتب', { type: 'income', amount: 5000, item: 'مرتب', categoryId: 'salary' });
+  tx('+200 gift', { type: 'income', amount: 200, categoryId: 'gift' });
+  tx('-20 taxi', { type: 'expense', amount: 20, categoryId: 'transport' });
+  tx('بنزين 50 جنيه', { amount: 50, currency: 'EGP', categoryId: 'transport' });
+});
+
+test('two separate numbers are flagged as ambiguous', () => {
+  assert.equal(p('2 قهوة 30').ambiguous, true);
+  assert.equal(p('coffee 15 and cake 20').ambiguous, true);
+  assert.equal(p('دفعت ألف و500 جنيه').ambiguous, false);
+  assert.equal(p('دفعت ألف و500 جنيه').amount, 1500);
+});

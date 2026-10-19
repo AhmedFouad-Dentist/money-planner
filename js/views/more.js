@@ -5,35 +5,56 @@ import { h, card, openSheet, field, segmented, select, numberInput, readNumber, 
 import { t, money, pct, fmtDate, nameOf, getLang, setLang, applyTheme } from '../i18n.js';
 import { store, update, flushSave, rerender } from '../store.js';
 import { uid, migrate, OTHER_CATEGORY, PALETTE } from '../model.js';
-import { budgetStatus, monthKey, netWorth, toBase } from '../finance.js';
+import { budgetStatus, monthKey, netWorth, toBase, dueLoans } from '../finance.js';
 import { detectRecurring } from '../recurring.js';
 import { fetchRates, RATES_URL_BASE } from '../rates.js';
 import { createBackup, openBackup } from '../crypto.js';
 import { requestPersistence, isPersisted } from '../db.js';
 import * as vault from '../vault.js';
 import { APP_VERSION } from '../version.js';
-import { S, today, fmtBase, currencyOptions, sectionTitle, categoryById } from './common.js';
+import { S, today, fmtBase, currencyOptions, sectionTitle, categoryById, backupDue } from './common.js';
 import { go } from './shell.js';
 
 const REPO_URL = 'https://github.com/AhmedFouad-Dentist/money-planner';
 
+// Things that need attention; shown at the top of "More" and as a badge on its tab.
+export function moreAlerts(st) {
+  const out = [];
+  if (backupDue(st)) out.push({ kind: 'warn', text: t('home.backupDue'), route: 'backup' });
+  for (const d of dueLoans(st)) {
+    out.push({ kind: d.overdue ? 'danger' : 'warn', text: t(d.overdue ? 'home.loanOverdue' : 'home.loanDue', { name: d.loan.person, n: Math.abs(d.daysLeft) }), route: 'loan', params: { id: d.loan.id } });
+  }
+  for (const b of budgetStatus(st, monthKey(new Date())).filter((x) => x.level !== 'ok')) {
+    const c = categoryById(b.budget.categoryId);
+    out.push({ kind: b.level === 'over' ? 'danger' : 'warn', text: t(b.level === 'over' ? 'budget.overShort' : 'budget.warnShort', { cat: `${c.icon} ${nameOf(c)}` }), route: 'budgets' });
+  }
+  const handled = new Set([...st.recurring.confirmed.map((r) => r.key), ...st.recurring.dismissed]);
+  const found = detectRecurring(st.transactions).filter((r) => !handled.has(r.key)).length;
+  if (found) out.push({ kind: 'info', text: t('home.recurringFound', { n: found }), route: 'recurring' });
+  return out;
+}
+
 export function moreView() {
-  const item = (ic, key, route) => listRow({ icon: ic, title: t(key), onClick: () => go(route), chevron: true });
+  const st = S();
+  const item = (ic, key, route, sub) => listRow({ icon: ic, title: t(key), subtitle: sub, onClick: () => go(route), chevron: true });
+  const nw = netWorth(st);
   return {
     title: t('tab.more'),
     body: [
-      card(h('div', { class: 'list' },
-        item('📊', 'more.report', 'report'),
-        item('🎯', 'more.budgets', 'budgets'),
-        item('🔁', 'more.recurring', 'recurring'),
+      moreAlerts(st).map((a) => h('button', { class: `banner ${a.kind}`, type: 'button', onclick: () => go(a.route, a.params) }, h('strong', { text: a.text }))),
+      h('section', { class: 'card' }, h('div', { class: 'list big-list' },
+        item('🎯', 'tab.goals', 'goals'),
+        item('💰', 'more.networth', 'networth', fmtBase(nw.total, { decimals: 0 })),
+        item('📈', 'tab.invest', 'invest'),
         item('🤝', 'more.loans', 'loans'),
-        item('🏦', 'more.networth', 'networth'))),
-      card(h('div', { class: 'list' },
-        item('🎙️', 'more.connect', 'connect'))),
-      card(h('div', { class: 'list' },
+        item('📊', 'more.report', 'report'),
+        item('🧾', 'more.budgets', 'budgets'),
+        item('🔁', 'more.recurring', 'recurring'))),
+      h('section', { class: 'card' }, h('div', { class: 'list big-list' },
+        item('🎙️', 'more.connect', 'connect'),
+        item('💾', 'more.backup', 'backup'),
         item('🏷️', 'more.categories', 'categories'),
         item('💱', 'more.rates', 'rates'),
-        item('💾', 'more.backup', 'backup'),
         item('⚙️', 'more.settings', 'settings'),
         item('🔒', 'more.about', 'about'))),
     ],
@@ -551,6 +572,7 @@ function pinInput(label) {
 
 function openChangePin() {
   const cur = pinInput(t('settings.currentPin'));
+  cur.maxLength = 8; // older PINs had 6 digits
   const p1 = pinInput(t('settings.newPin'));
   const p2 = pinInput(t('settings.newPinAgain'));
   const re = new RegExp(`^\\d{${vault.PIN_LENGTH}}$`);

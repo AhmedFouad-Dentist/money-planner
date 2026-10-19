@@ -1,94 +1,64 @@
-import { h, card, progress } from '../ui.js';
-import { icon } from '../icons.js';
-import { t, money, pct, nameOf } from '../i18n.js';
-import { netWorth, goalCurrent, goalPlan, monthSummary, monthKey, budgetStatus, fromBase, dueLoans, loanRemaining } from '../finance.js';
-import { detectRecurring } from '../recurring.js';
-import { S, fmtBase, txRow, sectionTitle, linkBtn, categoryById, backupDue } from './common.js';
+// Home: one input, this month's spending, the goal bar and the last 5 entries.
+// Everything else lives under "More".
+
+import { h, progress, swipeToDelete, toast } from '../ui.js';
+import { t, money, pct } from '../i18n.js';
+import { goalCurrent, goalPlan, monthSummary, monthKey, fromBase } from '../finance.js';
+import { update } from '../store.js';
+import { S, txRow } from './common.js';
 import { go } from './shell.js';
 import { openEntry } from './entry.js';
-import { quickTextCard, addFromClipboard } from './quick.js';
+import { quickBox } from './quick.js';
 import { openGoalEditor } from './goals.js';
+
+export function deleteTx(tx) {
+  update((s) => (s.transactions = s.transactions.filter((x) => x.id !== tx.id)));
+  toast(t('home.deleted'), { actions: [{ label: t('common.undo'), run: () => update((s) => { s.transactions.push(tx); s.transactions.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)); }) }], ms: 6000 });
+}
+
+export function entryRow(tx) {
+  return swipeToDelete(txRow(tx, () => openEntry({ tx })), () => deleteTx(tx), t('home.swipeHint'));
+}
+
+function optionalCard(id, title, text, action, onAction) {
+  return h('section', { class: 'card offer' },
+    h('div', { class: 'offer-main' }, h('strong', { text: title }), h('span', { class: 'muted small', text })),
+    h('div', { class: 'offer-actions' },
+      h('button', { class: 'btn primary', type: 'button', onclick: onAction }, action),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('home.dismiss'), onclick: () => update((s) => (s.settings.dismissed = { ...s.settings.dismissed, [id]: true })) }, '✕')));
+}
 
 export function homeView() {
   const st = S();
-  const nw = netWorth(st);
-  const key = monthKey(new Date());
-  const month = monthSummary(st.transactions, st.rates, key);
+  const rc = st.settings.reportCurrency;
+  const month = monthSummary(st.transactions, st.rates, monthKey(new Date()));
   const goal = st.goals[0];
+  const dismissed = st.settings.dismissed ?? {};
 
-  const banners = [];
-  if (backupDue(st)) {
-    banners.push(h('button', { class: 'banner warn', type: 'button', onclick: () => go('backup') },
-      h('strong', { text: t('home.backupDue') }), h('span', { text: t('home.backupDueSub') })));
-  }
-  for (const b of budgetStatus(st, key).filter((x) => x.level !== 'ok')) {
-    const c = categoryById(b.budget.categoryId);
-    banners.push(h('button', { class: `banner ${b.level === 'over' ? 'danger' : 'warn'}`, type: 'button', onclick: () => go('budgets') },
-      h('strong', { text: t(b.level === 'over' ? 'budget.overShort' : 'budget.warnShort', { cat: `${c.icon} ${nameOf(c)}` }) }),
-      h('span', { text: `${money(b.spent, b.budget.currency)} / ${money(b.limit, b.budget.currency)} (${pct(b.pct)})` })));
-  }
-  for (const d of dueLoans(st)) {
-    banners.push(h('button', { class: `banner ${d.overdue ? 'danger' : 'warn'}`, type: 'button', onclick: () => go('loan', { id: d.loan.id }) },
-      h('strong', { text: t(d.overdue ? 'home.loanOverdue' : 'home.loanDue', { name: d.loan.person, n: Math.abs(d.daysLeft) }) }),
-      h('span', { text: `${t(d.loan.direction === 'lent' ? 'loans.theyOwe' : 'loans.iOweThem')}: ${money(loanRemaining(d.loan), d.loan.currency)}` })));
-  }
-  const handled = new Set([...st.recurring.confirmed.map((r) => r.key), ...st.recurring.dismissed]);
-  const newRecurring = detectRecurring(st.transactions).filter((r) => !handled.has(r.key));
-  if (newRecurring.length) {
-    banners.push(h('button', { class: 'banner info', type: 'button', onclick: () => go('recurring') },
-      h('strong', { text: t('home.recurringFound', { n: newRecurring.length }) }), h('span', { text: t('home.recurringSub') })));
-  }
+  const spent = h('button', { class: 'spent', type: 'button', onclick: () => go('report') },
+    h('span', { class: 'spent-label', text: t('home.spentMonth') }),
+    h('span', { class: 'spent-value', text: money(fromBase(month.expense, rc, st.rates), rc, { decimals: 0 }) }));
 
-  let goalBlock;
+  let goalBar = null;
   if (goal) {
     const current = goalCurrent(goal, st);
     const plan = goalPlan(goal, current, null);
-    goalBlock = h('button', { class: 'hero-goal', type: 'button', onclick: () => go('goals') },
-      h('div', { class: 'row between' },
-        h('span', { class: 'muted', text: t('home.remainingTo', { goal: goal.name }) }),
-        h('span', { class: 'pill', text: pct(plan.pct, plan.pct < 0.1 ? 1 : 0) })),
-      h('div', { class: 'hero-sub-value', text: plan.reached ? t('goals.reached') : money(plan.remaining, goal.currency, { decimals: 0 }) }),
+    goalBar = h('button', { class: 'goal-bar', type: 'button', onclick: () => go('goals') },
+      h('div', { class: 'row between' }, h('strong', { text: goal.name }), h('span', { class: 'muted', text: pct(plan.pct) })),
       progress(plan.pct, plan.reached ? 'good' : 'ok', goal.name),
-      h('div', { class: 'muted small', text: `${money(current, goal.currency, { decimals: 0 })} / ${money(plan.target, goal.currency, { decimals: 0 })}` }));
-  } else {
-    goalBlock = h('button', { class: 'btn ghost block', type: 'button', onclick: () => openGoalEditor() }, t('goals.add'));
+      h('span', { class: 'muted small', text: plan.reached ? t('goals.reached') : t('home.goalLeft', { left: money(plan.remaining, goal.currency, { decimals: 0 }) }) }));
   }
 
-  const hero = h('section', { class: 'card hero' },
-    h('div', { class: 'muted', text: t('home.netWorth') }),
-    h('div', { class: 'hero-value', text: fmtBase(nw.total, { decimals: 0 }) }),
-    h('button', { class: 'hero-breakdown', type: 'button', onclick: () => go('networth') },
-      h('span', {}, `${t('nw.cash')} ${fmtBase(nw.cash, { decimals: 0 })}`),
-      h('span', {}, `${t('nw.investments')} ${fmtBase(nw.investments, { decimals: 0 })}`),
-      nw.receivables > 0 && h('span', { class: 'pos' }, `${t('nw.receivables')} +${fmtBase(nw.receivables, { decimals: 0 })}`),
-      nw.payables > 0 && h('span', { class: 'neg' }, `${t('nw.payables')} −${fmtBase(nw.payables, { decimals: 0 })}`),
-      nw.liabilities > 0 && h('span', {}, `${t('nw.debts')} −${fmtBase(nw.liabilities, { decimals: 0 })}`)),
-    h('hr'),
-    goalBlock,
-  );
-
-  const rc = st.settings.reportCurrency;
-  const tile = (label, value, cls = '') => h('div', { class: 'tile' }, h('span', { class: 'tile-label', text: label }), h('span', { class: `tile-value ${cls}`, text: value }));
-  const monthCard = card(
-    sectionTitle(t('home.thisMonth'), linkBtn(t('home.fullReport'), () => go('report'))),
-    h('div', { class: 'tiles' },
-      tile(t('report.income'), money(fromBase(month.income, rc, st.rates), rc, { decimals: 0 }), 'pos'),
-      tile(t('report.spent'), money(fromBase(month.expense, rc, st.rates), rc, { decimals: 0 })),
-      tile(t('report.saved'), money(fromBase(month.saved, rc, st.rates), rc, { decimals: 0 }), month.saved < 0 ? 'neg' : ''),
-      tile(t('report.rate'), pct(month.savingsRate))),
-  );
-
-  const quick = h('div', { class: 'quick-actions' },
-    h('button', { class: 'btn primary', type: 'button', onclick: () => openEntry({}) }, icon('plus', { size: 20 }), t('home.addTx')),
-    h('button', { class: 'btn ghost', type: 'button', onclick: () => addFromClipboard() }, icon('clipboard', { size: 20 }), t('clip.button')));
-
   const recent = [...st.transactions].reverse().slice(0, 5);
-  const recentCard = card(
-    sectionTitle(t('home.recent'), st.transactions.length > 5 && linkBtn(t('home.seeAll'), () => go('tx'))),
-    recent.length
-      ? h('div', { class: 'list' }, recent.map((tx) => txRow(tx, () => openEntry({ tx }))))
-      : h('p', { class: 'muted', text: t('home.noTx') }),
-  );
+  const list = recent.length
+    ? h('section', { class: 'card recent' },
+      h('div', { class: 'section-title' }, h('h2', { text: t('home.recent') }), st.transactions.length > 5 && h('button', { class: 'link-btn', type: 'button', onclick: () => go('tx') }, t('home.seeAll'))),
+      h('div', { class: 'list' }, recent.map(entryRow)))
+    : h('p', { class: 'muted center first-hint', text: t('home.firstHint') });
 
-  return { title: t('app.name'), body: [banners, hero, quick, quickTextCard(), monthCard, recentCard] };
+  const offers = [];
+  if (!goal && !dismissed.goal) offers.push(optionalCard('goal', t('home.offerGoal'), t('home.offerGoalText'), t('home.offerGoalBtn'), () => openGoalEditor()));
+  else if (!dismissed.siri && st.transactions.length >= 3) offers.push(optionalCard('siri', t('home.offerSiri'), t('home.offerSiriText'), t('home.offerSiriBtn'), () => go('connect')));
+
+  return { title: t('app.name'), body: [quickBox(), spent, goalBar, list, offers] };
 }

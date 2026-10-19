@@ -12,22 +12,20 @@ import { moreView, budgetsView, recurringView, netWorthView, categoriesView, rat
 import { reportView } from './report.js';
 import { loansView, loanView } from './loans.js';
 import { connectView } from './connect.js';
-import { dueLoans } from '../finance.js';
-import { openEntry } from './entry.js';
+import { moreAlerts } from './more.js';
 
+// Three tabs only; everything else lives in the "More" list.
 const TABS = [
   { id: 'home', icon: 'home' },
   { id: 'tx', icon: 'list' },
-  { id: 'goals', icon: 'target' },
-  { id: 'invest', icon: 'trend' },
   { id: 'more', icon: 'more' },
 ];
 
 const ROUTES = {
   home: { view: homeView },
   tx: { view: txView },
-  goals: { view: goalsView },
-  invest: { view: investView },
+  goals: { view: goalsView, parent: 'more' },
+  invest: { view: investView, parent: 'more' },
   more: { view: moreView },
   holding: { view: holdingView, parent: 'invest' },
   report: { view: reportView, parent: 'more' },
@@ -76,12 +74,10 @@ export function mountShell({ lock }) {
     actions: h('div', { class: 'topbar-actions' }),
     main: h('main', { id: 'main', class: 'main', tabindex: -1 }),
     tabs: h('nav', { class: 'tabbar', 'aria-label': t('common.sections') }),
-    fab: h('button', { class: 'fab', type: 'button', 'aria-label': t('entry.add'), onclick: () => openEntry({}) }, icon('plus', { size: 28 })),
   };
   clear(app,
     h('header', { class: 'topbar' }, frame.back, frame.title, frame.actions),
     frame.main,
-    frame.fab,
     frame.tabs,
   );
   app.className = 'shell';
@@ -109,12 +105,11 @@ export function render() {
   clear(frame.actions, v.actions ?? [],
     h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('lock.lockNow'), onclick: () => onLock() }, icon('lock', { size: 22 })));
   clear(frame.main, v.body);
-  frame.fab.hidden = v.fab === false;
   const tab = route.parent ? nav.from ?? (ROUTES[route.parent]?.parent ?? route.parent) : nav.route;
-  const badge = dueLoans(store.state).length;
+  const badge = moreAlerts(store.state).length;
   clear(frame.tabs, TABS.map((tb) =>
     h('button', { type: 'button', class: `tab${tb.id === tab ? ' on' : ''}`, 'aria-current': tb.id === tab ? 'page' : null, onclick: () => go(tb.id) },
-      h('span', { class: 'tab-icon' }, icon(tb.icon, { size: 24 }), tb.id === 'more' && badge ? h('span', { class: 'badge', 'aria-label': t('loans.dueBadge', { n: badge }) }, String(badge)) : null),
+      h('span', { class: 'tab-icon' }, icon(tb.icon, { size: 24 }), tb.id === 'more' && badge ? h('span', { class: 'badge', 'aria-label': t('more.alertsBadge', { n: badge }) }, String(badge)) : null),
       h('span', { text: t(`tab.${tb.id}`) }))));
 }
 
