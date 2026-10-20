@@ -46,14 +46,6 @@ async function newPhone(opts) {
   return { ctx, page };
 }
 
-async function setup(page, pin) {
-  await page.goto(BASE);
-  await page.waitForSelector('.pin-boxes');
-  await page.fill('.pin-boxes', pin);
-  await page.click('.btn.huge');
-  await page.waitForSelector('.quick-input', { timeout: 20000 });
-}
-
 async function type(page, text) {
   await page.fill('.quick-input', text);
   await page.press('.quick-input', 'Enter');
@@ -76,14 +68,14 @@ try {
   {
     const { ctx, page } = await newPhone({ locale: 'ar-QA', timezoneId: 'Asia/Qatar' });
     await page.goto(BASE);
-    await page.waitForSelector('.pin-boxes');
+    await page.waitForSelector('.btn.huge');
     ok(await page.evaluate(() => document.documentElement.lang) === 'ar', 'setup is in Arabic (from the phone)');
     ok(await page.inputValue('.big-select') === 'QAR', 'main currency preselected: QAR');
-    ok(await page.locator('.screen input, .screen select').count() === 2, 'setup has only currency + PIN');
+    ok(await page.locator('.screen input, .screen select').count() === 1, 'setup is just the currency + Start (no PIN)');
     await page.screenshot({ path: join(SHOTS, '01-setup.png') });
-    await page.fill('.pin-boxes', '1234');
     await page.click('.btn.huge');
     await page.waitForSelector('.quick-input', { timeout: 20000 });
+    ok(await page.locator('.topbar-actions [aria-label="قفل الآن"]').count() === 0, 'no lock button without a PIN');
     ok(await page.locator('.tab').count() === 3, 'bottom bar: 3 tabs');
     ok(await page.getAttribute('.quick-input', 'placeholder') === 'قهوة 15', 'input placeholder "قهوة 15"');
 
@@ -176,23 +168,44 @@ try {
     const backupFile = join(tmpdir(), 'mp-e2e-backup.json');
     await dl.saveAs(backupFile);
     ok(!/قهوة|FAKE MART|أحمد/.test(readFileSync(backupFile, 'utf8')), 'backup file is encrypted');
-    await page.click('.topbar-actions .icon-btn:last-child');
-    await page.waitForSelector('.keypad');
+    await page.reload();
+    await page.waitForSelector('.quick-input', { timeout: 20000 });
+    ok(await page.locator('.keypad').count() === 0, 'reopening the app goes straight to Home (no PIN)');
+
+    // optional PIN from Settings: on → lock → 4 digits → off
+    await page.click('.tab >> nth=2');
+    await page.click('text=الإعدادات');
+    await page.click('button:has-text("حط رقم سري")');
+    await page.locator('.sheet .field:has-text("الرمز الجديد") input').first().fill('1234');
+    await page.locator('.sheet .field:has-text("مرة أخرى") input').fill('1234');
+    await page.click('.sheet .btn.primary');
+    await page.waitForSelector('.toast:has-text("اتحط الرقم السري")', { timeout: 20000 });
+    await page.reload();
+    await page.waitForSelector('.keypad', { timeout: 20000 });
     await page.screenshot({ path: join(SHOTS, '05-lock.png') });
     for (const d of '1234') await page.click(`.key[aria-label="${d}"]`);
     await page.waitForSelector('.quick-input', { timeout: 20000 });
-    ok(true, 'unlocks automatically on the 4th digit');
+    ok(true, 'PIN added in Settings → asks on open, unlocks on the 4th digit');
+    await page.click('.tab >> nth=2');
+    await page.click('text=الإعدادات');
+    await page.click('button:has-text("شيل الرقم السري")');
+    await page.locator('.sheet .field:has-text("الرمز الحالي") input').fill('1234');
+    await page.click('.sheet .btn.primary');
+    await page.waitForSelector('.toast:has-text("اتشال الرقم السري")', { timeout: 20000 });
+    await page.reload();
+    await page.waitForSelector('.quick-input', { timeout: 20000 });
+    ok(await page.locator('.keypad').count() === 0, 'PIN removed → opens straight away again');
     const raw = await page.evaluate(() => new Promise((res) => {
       const r = indexedDB.open('money-planner');
       r.onsuccess = () => { const g = r.result.transaction('kv').objectStore('kv').get('vault'); g.onsuccess = () => res(new TextDecoder('latin1').decode(g.result.ct)); };
     }));
-    ok(!/قهوة|FAKE|Groceries/.test(raw), 'stored data is encrypted');
+    ok(!/قهوة|FAKE|Groceries/.test(raw), 'stored data is encrypted (also without a PIN)');
     await ctx.close();
 
     // restore on a "new phone"
     const fresh = await newPhone({ locale: 'ar-QA', timezoneId: 'Asia/Qatar' });
     await fresh.page.goto(BASE);
-    await fresh.page.waitForSelector('.pin-boxes');
+    await fresh.page.waitForSelector('.btn.huge');
     const [chooser] = await Promise.all([fresh.page.waitForEvent('filechooser'), fresh.page.click('text=استعادة من نسخة احتياطية')]);
     await chooser.setFiles(backupFile);
     await fresh.page.locator('.sheet input[type=password]').fill('wrong');
@@ -201,7 +214,6 @@ try {
     await fresh.page.locator('.sheet input[type=password]').fill('test-password-1');
     await fresh.page.click('button:has-text("فتح النسخة")');
     await fresh.page.waitForSelector('.screen .pos', { timeout: 20000 });
-    await fresh.page.fill('.pin-boxes', '9876');
     await fresh.page.click('.btn.huge');
     await fresh.page.waitForSelector('.goal-bar', { timeout: 20000 });
     ok(true, 'restore from backup (wrong password refused) → same goal and entries');
@@ -213,10 +225,9 @@ try {
   {
     const { ctx, page } = await newPhone({ locale: 'en-GB', timezoneId: 'Europe/London' });
     await page.goto(BASE);
-    await page.waitForSelector('.pin-boxes');
+    await page.waitForSelector('.btn.huge');
     ok(await page.evaluate(() => document.documentElement.lang) === 'en', 'setup in English');
     ok(await page.inputValue('.big-select') === 'GBP', 'main currency preselected: GBP');
-    await page.fill('.pin-boxes', '5678');
     await page.click('.btn.huge');
     await page.waitForSelector('.quick-input', { timeout: 20000 });
     ok(await page.getAttribute('.quick-input', 'placeholder') === 'coffee 15', 'placeholder "coffee 15"');
@@ -224,6 +235,23 @@ try {
     await page.waitForSelector('.toast:has-text("Saved: Coffee")');
     ok(true, '"coffee 15" → "Saved: Coffee £15.00"');
     await page.screenshot({ path: join(SHOTS, '06-home-en.png') });
+    // an install from before the PIN became optional (required PIN, no meta.mode)
+    await page.evaluate(async () => {
+      const [{ store, flushSave }, vault, db] = await Promise.all([import('./js/store.js'), import('./js/vault.js'), import('./js/db.js')]);
+      await flushSave();
+      await vault.setPin('246810', store.state);
+      const meta = await db.dbGet('meta');
+      delete meta.mode;
+      await db.dbSet('meta', meta);
+    });
+    await page.reload();
+    await page.waitForSelector('.keypad', { timeout: 20000 });
+    for (const d of '246810') await page.click(`.key[aria-label="${d}"]`);
+    await page.waitForSelector('.toast:has-text("The PIN is gone")', { timeout: 20000 });
+    await page.reload();
+    await page.waitForSelector('.quick-input', { timeout: 20000 });
+    ok(await page.locator('.keypad').count() === 0 && (await page.textContent('.recent')).includes('Coffee'), 'old required 6-digit PIN asked once, then removed; data kept');
+
     // #say from Siri while the app is open: confirm sheet, fragment removed
     await page.evaluate(() => { location.hash = '#say=' + encodeURIComponent('spent 30 pounds on lunch'); });
     await page.waitForSelector('.sheet');

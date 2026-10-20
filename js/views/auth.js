@@ -132,7 +132,8 @@ async function forgotPin() {
 }
 
 // ---------------------------------------------------------------- setup
-// One screen: main currency (guessed from the phone) + a 4-digit PIN + Start.
+// One screen: main currency (guessed from the phone) + Start. No PIN by
+// default — it can be turned on later in Settings.
 // Goals, other currencies, Siri etc. are offered later on the Home screen.
 export function renderOnboarding(onDone) {
   let restored = null;
@@ -142,16 +143,7 @@ export function renderOnboarding(onDone) {
     const options = [...new Set([currency, ...KNOWN_CURRENCIES, ...Object.keys(APPROX_PER_USD)])];
     const ccy = h('select', { class: 'big-select', 'aria-label': t('setup.currency'), onchange: () => (currency = ccy.value) },
       options.map((c) => h('option', { value: c, selected: c === currency }, ccyLabel(c))));
-    const pin = h('input', {
-      type: 'text', inputmode: 'numeric', pattern: '[0-9]*', maxlength: vault.PIN_LENGTH, autocomplete: 'off',
-      class: 'pin-boxes', 'aria-label': t('setup.pin'), placeholder: '••••',
-    });
-    const start = h('button', { class: 'btn primary block huge', type: 'button', disabled: true }, t('setup.start'));
-    pin.addEventListener('input', () => {
-      pin.value = pin.value.replace(/[\u0660-\u0669]/g, (d) => d.charCodeAt(0) - 0x660).replace(/\D/g, '').slice(0, vault.PIN_LENGTH);
-      start.disabled = pin.value.length !== vault.PIN_LENGTH;
-    });
-    pin.addEventListener('keydown', (e) => e.key === 'Enter' && !start.disabled && start.click());
+    const start = h('button', { class: 'btn primary block huge', type: 'button' }, t('setup.start'));
     start.addEventListener('click', async () => {
       start.disabled = true;
       start.textContent = t('onb.creating');
@@ -163,7 +155,8 @@ export function renderOnboarding(onDone) {
       });
       if (restored) setLang(state.settings.lang);
       state.settings.lang = getLang();
-      await vault.createVault(pin.value, state, { lang: getLang(), theme: state.settings.theme ?? 'system' });
+      // no PIN: the data is still encrypted on the phone; a PIN can be added in Settings
+      await vault.createVault(null, state, { lang: getLang(), theme: state.settings.theme ?? 'system' });
       onDone(state);
     });
 
@@ -173,7 +166,6 @@ export function renderOnboarding(onDone) {
       restored
         ? h('p', { class: 'pos center', text: t('onb.restoredReady', { tx: restored.transactions.length }) })
         : field(t('setup.currency'), ccy),
-      field(t('setup.pin'), pin, t('setup.pinHint')),
       start,
       !restored && h('button', {
         class: 'link-btn center-block', type: 'button',

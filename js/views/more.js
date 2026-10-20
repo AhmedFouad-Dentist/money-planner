@@ -542,11 +542,17 @@ export function settingsView() {
           await vault.updatePrefs({ theme: v });
         })),
       ),
-      card(
-        field(t('settings.autoLock'), select([1, 2, 5, 10, 30].map((m) => ({ value: String(m), label: t('settings.minutes', { n: m }) })), String(st.settings.autoLockMinutes ?? 2),
-          (v) => update((s) => (s.settings.autoLockMinutes = Number(v)), { render: false }))),
-        h('button', { class: 'btn ghost block', type: 'button', onclick: openChangePin }, t('settings.changePin')),
-      ),
+      vault.hasPin()
+        ? card(
+          h('div', { class: 'row between' }, h('strong', { text: t('settings.pinTitle') }), h('span', { class: 'pos', text: t('settings.pinIsOn') })),
+          field(t('settings.autoLock'), select([1, 2, 5, 10, 30].map((m) => ({ value: String(m), label: t('settings.minutes', { n: m }) })), String(st.settings.autoLockMinutes ?? 2),
+            (v) => update((s) => (s.settings.autoLockMinutes = Number(v)), { render: false }))),
+          h('button', { class: 'btn ghost block', type: 'button', onclick: () => openPinSheet('change') }, t('settings.changePin')),
+          h('button', { class: 'btn ghost block', type: 'button', onclick: () => openPinSheet('off') }, t('settings.pinOff')))
+        : card(
+          h('div', { class: 'row between' }, h('strong', { text: t('settings.pinTitle') }), h('span', { class: 'muted', text: t('settings.pinIsOff') })),
+          h('p', { class: 'muted small', text: t('settings.pinOffHint') }),
+          h('button', { class: 'btn ghost block', type: 'button', onclick: () => openPinSheet('on') }, t('settings.pinOn'))),
       card(
         h('div', { class: 'row between' }, h('span', { text: t('settings.storage') }), persisted),
         h('p', { class: 'muted small', text: t('settings.storageHint') }),
@@ -570,37 +576,43 @@ function pinInput(label) {
   return h('input', { type: 'password', inputmode: 'numeric', pattern: '[0-9]*', maxlength: vault.PIN_LENGTH, autocomplete: 'off', 'aria-label': label, class: 'pin-input' });
 }
 
-function openChangePin() {
-  const cur = pinInput(t('settings.currentPin'));
-  cur.maxLength = 8; // older PINs had 6 digits
-  const p1 = pinInput(t('settings.newPin'));
-  const p2 = pinInput(t('settings.newPinAgain'));
+// mode: 'on' (add a PIN), 'change', 'off' (remove it)
+function openPinSheet(mode) {
+  const cur = mode !== 'on' && pinInput(t('settings.currentPin'));
+  if (cur) cur.maxLength = 8; // older PINs had 6 digits
+  const p1 = mode !== 'off' && pinInput(t('settings.newPin'));
+  const p2 = mode !== 'off' && pinInput(t('settings.newPinAgain'));
   const re = new RegExp(`^\\d{${vault.PIN_LENGTH}}$`);
   const sheet = openSheet({
-    title: t('settings.changePin'),
+    title: t(mode === 'on' ? 'settings.pinOn' : mode === 'off' ? 'settings.pinOff' : 'settings.changePin'),
     body: [
-      field(t('settings.currentPin'), cur),
-      field(t('settings.newPin'), p1, t('onb.pinHint', { n: vault.PIN_LENGTH })),
-      field(t('settings.newPinAgain'), p2),
+      mode === 'off' && h('p', { class: 'muted', text: t('settings.pinOffConfirm') }),
+      cur && field(t('settings.currentPin'), cur),
+      p1 && field(t('settings.newPin'), p1, t('onb.pinHint', { n: vault.PIN_LENGTH })),
+      p2 && field(t('settings.newPinAgain'), p2),
+      mode === 'on' && h('p', { class: 'warn-text small', text: t('settings.pinWarning') }),
       h('button', {
         class: 'btn primary block', type: 'button',
         onclick: async (e) => {
-          if (!re.test(p1.value)) return toast(t('onb.pinHint', { n: vault.PIN_LENGTH }), { kind: 'warn' });
-          if (p1.value !== p2.value) return toast(t('onb.pinMismatch'), { kind: 'warn' });
-          e.currentTarget.disabled = true;
-          if (!(await vault.checkPin(cur.value))) {
-            e.currentTarget.disabled = false;
+          const btn = e.currentTarget;
+          if (p1 && !re.test(p1.value)) return toast(t('onb.pinHint', { n: vault.PIN_LENGTH }), { kind: 'warn' });
+          if (p1 && p1.value !== p2.value) return toast(t('onb.pinMismatch'), { kind: 'warn' });
+          btn.disabled = true;
+          if (cur && !(await vault.checkPin(cur.value))) {
+            btn.disabled = false;
             return toast(t('lock.wrong'), { kind: 'error' });
           }
           await flushSave();
-          await vault.changePin(p1.value, store.state);
+          if (mode === 'off') await vault.removePin(store.state);
+          else await vault.setPin(p1.value, store.state);
           sheet.close();
-          toast(t('settings.pinChanged'), { kind: 'ok' });
+          toast(t(mode === 'on' ? 'settings.pinAdded' : mode === 'off' ? 'settings.pinRemoved' : 'settings.pinChanged'), { kind: 'ok' });
+          rerender();
         },
-      }, t('common.save')),
+      }, t(mode === 'off' ? 'settings.pinOff' : 'common.save')),
     ],
   });
-  cur.focus();
+  (cur || p1).focus();
 }
 
 export async function eraseEverything() {

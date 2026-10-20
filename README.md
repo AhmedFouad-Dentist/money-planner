@@ -21,7 +21,7 @@ A private money tracker that runs on your phone: spending, income, budgets, inve
 - **Budgets** per category with warnings at 80% and 100%.
 - **Subscriptions** — spots payments to the same merchant, of a similar amount, about monthly; you confirm which are real.
 - **Monthly report** — spent, saved, savings rate, top categories, 6-month chart, goal progress.
-- **Security** — PIN lock on open and after inactivity; all data encrypted (AES-GCM, key derived from your PIN with PBKDF2). Encrypted backup files you save to Files / iCloud.
+- **Security** — all data encrypted on the phone (AES-GCM). No PIN by default — the app opens straight away; an optional PIN lock can be turned on in Settings. Encrypted backup files you save to Files / iCloud.
 - Works offline, installs to the iPhone Home Screen, Arabic and English (full right-to-left layout), dark mode.
 
 ## Turn on GitHub Pages (one time, for the repository owner)
@@ -38,17 +38,17 @@ Every push to `main` runs the tests and, if they pass, redeploys. Open the app o
 1. Open the app address above in **Safari** (it must be Safari).
 2. Tap the **Share** button (square with an arrow) → **Add to Home Screen** → **Add**.
 3. Open **Money Planner** from the Home Screen icon. It now runs full screen and works offline.
-4. First run is one screen: your currency (already picked from your phone's location) and a 4-digit PIN → **Start**. The language follows your phone (Arabic phones start in Arabic; there's a small toggle). Goals, Siri and bank messages are offered later as small cards on Home, and everything is under **More**.
+4. First run is one screen: your currency (already picked from your phone's location) → **Start**. No PIN needed. The language follows your phone (Arabic phones start in Arabic; there's a small toggle). Goals, Siri and bank messages are offered later as small cards on Home, and everything is under **More**.
 
 **Using it:** the Home screen has only the input box, what you spent this month, your goal bar (if you set a goal) and your last 5 entries — tap one to edit, swipe it sideways to delete. The bottom bar has three tabs: **Home**, **History** and **More** (goals, investments, loans, everything you own, budgets, report, subscriptions, backup, settings).
 
-> There is no way to recover a forgotten PIN — that's what makes the encryption real. Keep backups.
+> Want a PIN? More → Settings → **Add a PIN**. If you add one and forget it, the data can't be recovered — keep backups.
 
 ## Backups
 
 Your data exists only on your phone. If the phone is lost, reset, or the app is removed from the Home Screen, **a backup file is the only way back**.
 
-- **Make one:** More → Backup & restore → choose a backup password (at least 8 characters, different from your PIN) → **Encrypt backup** → **Save backup file** → choose **Save to Files** (iCloud Drive is a good place).
+- **Make one:** More → Backup & restore → choose a backup password (at least 8 characters) → **Encrypt backup** → **Save backup file** → choose **Save to Files** (iCloud Drive is a good place).
 - **Restore:** on a new phone, choose **Restore from a backup file** on the first screen (or More → Backup & restore → Choose backup file), pick the file and type the backup password.
 - The app reminds you to back up (every 14 days by default; change it on the Backup screen).
 - The file is encrypted (AES-256-GCM, PBKDF2-SHA-256 with 600,000 iterations). Without the password nobody can read it — including you, so write the password down somewhere safe.
@@ -132,10 +132,11 @@ Rates are stored on your phone and can be edited by hand (More → Currencies & 
 
 ## Security details
 
-- The app state is one JSON document encrypted with **AES-256-GCM** and stored in the browser's IndexedDB on the phone. The key is derived from your 4-digit PIN (PINs set before this change stay 6 digits) with **PBKDF2-SHA-256, 600,000 iterations**, and is only kept in memory while unlocked.
-- After 5 wrong PINs the app makes you wait (30 s, doubling up to 15 min).
-- The app locks on open, after inactivity (2 minutes by default) and when it has been in the background longer than that.
-- **Honest limits:** a 4-digit PIN stops someone who picks up your phone (and the wait after wrong tries slows them down), and your iPhone's own encryption protects the device. But there are only 10,000 possible PINs, so someone who copied the app's raw storage off an unlocked phone could try them all offline. Keep a phone passcode, and use a long password for backups — they use their own password, not the PIN.
+- The app state is one JSON document encrypted with **AES-256-GCM** and stored in the browser's IndexedDB on the phone.
+- **Without a PIN (default):** the key is a random AES key created on the phone and stored by the browser as a *non-extractable* key — the app can use it but its bytes can't be read out by any page script. The app opens straight away, so **your iPhone's passcode / Face ID is what protects the data** from someone holding your phone. Keep a phone passcode.
+- **With a PIN (optional, Settings → Add a PIN):** the key is derived from your 4-digit PIN with **PBKDF2-SHA-256, 600,000 iterations** and kept only in memory while unlocked. The app locks on open, after inactivity (2 minutes by default) and after being in the background that long; after 5 wrong PINs it makes you wait (30 s, doubling up to 15 min). Only 10,000 PINs exist, so this stops someone picking up the phone, not someone who copied the app's raw storage.
+- Installs from before the PIN became optional are asked for their old PIN once; it is then removed (the app says so). A PIN you add later stays.
+- Backups use their own password (not a PIN) — make it long.
 - Strict Content-Security-Policy: scripts only from the app itself; the only allowed outside connection is `open.er-api.com`. No analytics, no third-party scripts, no CDN.
 
 ## For developers
@@ -204,7 +205,7 @@ npm run icons       # regenerate icons/*.png
 1. افتح الرابط في **Safari** (لازم Safari).
 2. اضغط زر **المشاركة** (المربع والسهم) ← **إضافة إلى الشاشة الرئيسية** ← **إضافة**.
 3. افتح **مخطط المال** من أيقونة الشاشة الرئيسية.
-4. أول مرة شاشة واحدة: عملتك (متختارة من مكان موبايلك) ورقم سري من 4 أرقام ← **يلا نبدأ**. اللغة زي لغة الموبايل (وفيه زرار صغير للتغيير). الأهداف وSiri ورسائل البنك بتظهر بعدين ككروت صغيرة في الرئيسية، وكل حاجة موجودة في **المزيد**.
+4. أول مرة شاشة واحدة: عملتك (متختارة من مكان موبايلك) ← **يلا نبدأ**. من غير رقم سري. اللغة زي لغة الموبايل (وفيه زرار صغير للتغيير). الأهداف وSiri ورسائل البنك بتظهر بعدين ككروت صغيرة في الرئيسية، وكل حاجة موجودة في **المزيد**.
 
 **الاستخدام:** الرئيسية فيها مربع الكتابة، وصرفت قد إيه الشهر ده، وشريط الهدف (لو حطيت هدف)، وآخر 5 حاجات — دوس على أي واحدة للتعديل واسحبها للمسح. الشريط تحت فيه 3 بس: **الرئيسية** و**السجل** و**المزيد**.
 
@@ -214,7 +215,7 @@ npm run icons       # regenerate icons/*.png
 
 بياناتك موجودة على هاتفك فقط. إذا ضاع الهاتف أو أُعيد ضبطه أو حُذف التطبيق، **فملف النسخة الاحتياطية هو الطريق الوحيد لاستعادتها**.
 
-- **لإنشاء نسخة:** المزيد ← النسخ الاحتياطي والاستعادة ← اختر كلمة مرور للنسخة (8 أحرف على الأقل، مختلفة عن الرمز السري) ← **تشفير النسخة** ← **حفظ ملف النسخة** ← **حفظ في الملفات** (iCloud Drive مكان مناسب).
+- **لإنشاء نسخة:** المزيد ← النسخ الاحتياطي والاستعادة ← اختر كلمة مرور للنسخة (8 أحرف على الأقل) ← **تشفير النسخة** ← **حفظ ملف النسخة** ← **حفظ في الملفات** (iCloud Drive مكان مناسب).
 - **للاستعادة:** على هاتف جديد اختر **استعادة من نسخة احتياطية** في أول شاشة، ثم اختر الملف واكتب كلمة المرور.
 - يذكّرك التطبيق بالنسخ الاحتياطي (كل 14 يومًا افتراضيًا).
 - الملف مشفّر، وبدون كلمة المرور لا يستطيع أحد قراءته — ولا أنت — فاكتبها في مكان آمن.
@@ -291,10 +292,11 @@ npm run icons       # regenerate icons/*.png
 
 ## تفاصيل الأمان
 
-- بيانات التطبيق مشفّرة بـ **AES-256-GCM** ومخزّنة في IndexedDB على الهاتف. المفتاح مشتق من الرمز السري المكوّن من 4 أرقام (الرموز القديمة المكوّنة من 6 أرقام تفضل زي ما هي) عبر **PBKDF2-SHA-256 بـ 600,000 تكرار** ولا يبقى إلا في الذاكرة أثناء الفتح.
-- بعد 5 محاولات خاطئة ينتظر التطبيق (30 ثانية تتضاعف حتى 15 دقيقة).
-- يُقفل التطبيق عند الفتح، وبعد عدم النشاط (دقيقتان افتراضيًا)، وعند العودة من الخلفية بعد هذه المدة.
-- **بصراحة:** الرقم السري من 4 أرقام بيمنع أي حد يمسك موبايلك (والانتظار بعد المحاولات الغلط بيبطّأه)، وتشفير الآيفون نفسه بيحمي الجهاز. لكن فيه 10,000 احتمال بس، فلو حد نسخ تخزين التطبيق من موبايل مفتوح يقدر يجرّبهم كلهم. خلّي للموبايل رمز قفل، واستخدم كلمة سر طويلة للنسخ الاحتياطية — ليها كلمة سر خاصة غير الرقم السري.
+- بيانات التطبيق مشفّرة بـ **AES-256-GCM** ومخزّنة في IndexedDB على الموبايل.
+- **من غير رقم سري (الافتراضي):** المفتاح عشوائي اتعمل على الموبايل والمتصفح بيحتفظ بيه بشكل محدش يقدر يطلّعه. التطبيق بيفتح على طول، فاللي بيحمي بياناتك من أي حد ماسك موبايلك هو **قفل الآيفون نفسه (الرقم أو Face ID)** — خلّي للموبايل رمز قفل.
+- **برقم سري (اختياري، من الإعدادات ← حط رقم سري):** المفتاح بيتعمل من رقم سري من 4 أرقام عبر **PBKDF2-SHA-256 بـ 600,000 تكرار**، والتطبيق بيتقفل وهو بيفتح وبعد عدم الاستخدام. فيه 10,000 احتمال بس، فده بيمنع حد يمسك الموبايل، مش حد نسخ تخزين التطبيق.
+- النسخ القديمة اللي كان فيها رقم سري إجباري بتسألك عليه مرة واحدة وبعدين بتشيله (وتقولك). أي رقم سري تحطه بنفسك بعد كده بيفضل.
+- النسخ الاحتياطية ليها كلمة سر خاصة — خلّيها طويلة.
 - سياسة أمان محتوى صارمة: لا أكواد إلا من التطبيق نفسه، والاتصال الخارجي الوحيد المسموح هو `open.er-api.com`. لا إحصاءات ولا أكواد خارجية.
 
 </div>

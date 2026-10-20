@@ -4,7 +4,7 @@
 
 ## In plain English
 
-**Your data stays on your phone.** Money Planner has no server, no account and no sign-in. Everything you type — transactions, goals, investments, balances, notes — is saved only inside the app's storage on your device, encrypted with your PIN.
+**Your data stays on your phone.** Money Planner has no server, no account and no sign-in. Everything you type — transactions, goals, investments, balances, notes — is saved only inside the app's storage on your device, encrypted. There's no PIN unless you add one in Settings, so your iPhone's own passcode / Face ID is what keeps others out.
 
 **Nobody else can see it.** Not the app's author, not GitHub (which only hosts the app's files), not anyone else. The app contains no analytics, no ads, no tracking and no code from other companies.
 
@@ -44,7 +44,7 @@ Backups are files **you** create and save (for example to Files or iCloud Drive)
 
 - **Erase everything:** More → Settings → Erase all data.
 - Removing the app from the Home Screen also removes its data — make a backup first.
-- If you forget your PIN, the data cannot be recovered; erase and restore your latest backup.
+- If you add a PIN and forget it, the data cannot be recovered; erase and restore your latest backup.
 
 ### Not advice
 
@@ -58,7 +58,7 @@ Money Planner only records and adds up your numbers. It does not give financial,
 
 ## بالعربية وببساطة
 
-**بياناتك تبقى على هاتفك.** لا يوجد خادم ولا حساب ولا تسجيل دخول. كل ما تكتبه — المعاملات والأهداف والاستثمارات والأرصدة والملاحظات — يُحفظ فقط داخل تخزين التطبيق على جهازك، مشفّرًا بالرمز السري الخاص بك.
+**بياناتك تبقى على هاتفك.** لا يوجد خادم ولا حساب ولا تسجيل دخول. كل ما تكتبه — المعاملات والأهداف والاستثمارات والأرصدة والملاحظات — يُحفظ فقط داخل تخزين التطبيق على جهازك، مشفّرًا. لا يوجد رقم سري إلا إذا أضفته من الإعدادات، فقفل الآيفون نفسه (الرقم أو Face ID) هو ما يمنع الآخرين.
 
 **لا أحد غيرك يستطيع رؤيتها.** لا مطوّر التطبيق، ولا GitHub (الذي يستضيف ملفات التطبيق فقط)، ولا أي جهة أخرى. لا يحتوي التطبيق على إحصاءات أو إعلانات أو تتبّع أو أكواد من شركات أخرى.
 
@@ -98,7 +98,7 @@ Money Planner only records and adds up your numbers. It does not give financial,
 
 - **لمسح كل شيء:** المزيد ← الإعدادات ← مسح كل البيانات.
 - حذف التطبيق من الشاشة الرئيسية يحذف بياناته أيضًا — اعمل نسخة احتياطية أولًا.
-- إذا نسيت الرمز السري فلا يمكن استرجاع البيانات؛ امسحها واستعد آخر نسخة احتياطية.
+- إذا أضفت رقمًا سريًا ونسيته فلا يمكن استرجاع البيانات؛ امسحها واستعد آخر نسخة احتياطية.
 
 ### ليست نصيحة
 

@@ -54,7 +54,7 @@ for (const ev of ['pointerdown', 'keydown', 'touchstart', 'scroll']) {
   addEventListener(ev, () => (lastActive = Date.now()), { passive: true, capture: true });
 }
 setInterval(() => {
-  if (store.state && Date.now() - lastActive > lockAfterMs()) lockNow();
+  if (store.state && vault.hasPin() && Date.now() - lastActive > lockAfterMs()) lockNow();
 }, 10_000);
 
 const cover = () => document.getElementById('privacy-cover');
@@ -67,13 +67,13 @@ document.addEventListener('visibilitychange', () => {
     }
   } else {
     cover().hidden = true;
-    if (store.state && Date.now() - hiddenAt > lockAfterMs()) lockNow();
+    if (store.state && vault.hasPin() && Date.now() - hiddenAt > lockAfterMs()) lockNow();
   }
 });
 addEventListener('pagehide', () => store.state && flushSave());
 
 async function lockNow() {
-  if (!store.state) return;
+  if (!store.state || !vault.hasPin()) return;
   await flushSave();
   store.state = null;
   vault.lock();
@@ -91,6 +91,7 @@ function onUnlocked(state) {
   recordSnapshot(store.state);
   mountShell({ lock: lockNow });
   requestPersistence();
+  if (vault.takeRemovedOldPin()) toast(t('settings.oldPinRemoved'), { kind: 'ok', ms: 7000 });
   deliverPending();
 }
 
@@ -99,6 +100,14 @@ async function boot() {
   const meta = await vault.getMeta().catch(() => null);
   setLang(meta?.lang ?? (navigator.language?.startsWith('ar') ? 'ar' : 'en'));
   applyTheme(meta?.theme);
+  if (meta && !vault.usesPin(meta)) {
+    try {
+      return onUnlocked(await vault.unlockWithDeviceKey());
+    } catch (e) {
+      console.error(e);
+      return renderLock(onUnlocked);
+    }
+  }
   if (meta) return renderLock(onUnlocked);
   if (pending) {
     return renderBridge(pending, { onSetupHere: () => renderOnboarding(onUnlocked) });

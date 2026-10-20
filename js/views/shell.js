@@ -13,6 +13,7 @@ import { reportView } from './report.js';
 import { loansView, loanView } from './loans.js';
 import { connectView } from './connect.js';
 import { moreAlerts } from './more.js';
+import { hasPin } from '../vault.js';
 
 // Three tabs only; everything else lives in the "More" list.
 const TABS = [
@@ -103,7 +104,7 @@ export function render() {
   frame.title.textContent = v.title;
   frame.back.hidden = !route.parent;
   clear(frame.actions, v.actions ?? [],
-    h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('lock.lockNow'), onclick: () => onLock() }, icon('lock', { size: 22 })));
+    hasPin() && h('button', { class: 'icon-btn', type: 'button', 'aria-label': t('lock.lockNow'), onclick: () => onLock() }, icon('lock', { size: 22 })));
   clear(frame.main, v.body);
   const tab = route.parent ? nav.from ?? (ROUTES[route.parent]?.parent ?? route.parent) : nav.route;
   const badge = moreAlerts(store.state).length;

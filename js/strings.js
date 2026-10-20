@@ -173,7 +173,7 @@ const en = {
   'settings.eraseTypeWord': 'Type {word} to confirm.',
 
   'about.privacyTitle': 'Your privacy',
-  'about.p1': 'Everything you enter stays on this phone, encrypted with your PIN. There is no account and no server.',
+  'about.p1': 'Everything you enter stays on this phone, encrypted. There is no account and no server.',
   'about.p2': 'No analytics, no ads, no third-party code.',
   'about.p3': 'From a bank SMS, only amount, currency, merchant and date are kept. Card/account numbers, balances and the message itself are discarded. Code messages (OTP) are refused.',
   'about.p4': 'The only network request the app can make is the optional “Update rates”, which sends just a currency code.',
@@ -249,7 +249,7 @@ const en = {
   'setup.pin': 'Choose a 4-digit PIN',
   'setup.pinHint': 'Remember it — nobody can recover it.',
   'setup.start': 'Start',
-  'setup.privacy': 'Everything stays on this phone only.',
+  'setup.privacy': 'Everything stays on this phone only, encrypted. No PIN needed — you can add one later in Settings.',
   'quick.howMuch': 'How much? Type the amount.',
   'quick.saved': 'Saved: {what} {amount}',
   'quick.savedIncome': 'Saved income: {what} {amount}',
@@ -275,6 +275,17 @@ const en = {
   'goals.savedSoFar': 'Saved so far (optional)',
   'goals.savedSoFarHint': 'We\'ll keep it as your savings. You can update it any time.',
   'goals.savingsAccountName': 'My savings',
+  'settings.pinTitle': 'PIN lock',
+  'settings.pinIsOn': 'On',
+  'settings.pinIsOff': 'Off',
+  'settings.pinOn': 'Add a PIN',
+  'settings.pinOff': 'Remove the PIN',
+  'settings.pinOffHint': 'The app opens straight away. Your data is still encrypted on this phone, so your iPhone passcode / Face ID is what protects it. Add a PIN if other people use your phone.',
+  'settings.pinOffConfirm': 'The app will open without asking for a PIN. Your data stays encrypted on this phone.',
+  'settings.pinWarning': 'If you forget the PIN, the data can\'t be opened — keep a backup.',
+  'settings.pinAdded': 'PIN added. The app will ask for it when it opens.',
+  'settings.pinRemoved': 'PIN removed. The app now opens straight away.',
+  'settings.oldPinRemoved': 'The PIN is gone — the app now opens straight away. You can add one again in Settings.',
 };
 
 const ar = {
@@ -450,7 +461,7 @@ const ar = {
   'settings.eraseTypeWord': 'اكتب «{word}» للتأكيد.',
 
   'about.privacyTitle': 'خصوصيتك',
-  'about.p1': 'كل ما تدخله يبقى على هذا الهاتف ومشفّر بالرمز السري. لا يوجد حساب ولا خادم.',
+  'about.p1': 'كل اللي بتكتبه بيفضل على موبايلك ومتشفّر. مفيش حساب ولا سيرفر.',
   'about.p2': 'لا إحصاءات ولا إعلانات ولا أكواد من أطراف أخرى.',
   'about.p3': 'من رسالة البنك نحتفظ فقط بالمبلغ والعملة والتاجر والتاريخ. أرقام البطاقات والحسابات والأرصدة ونص الرسالة نفسه يُتخلّص منها. رسائل الرموز (OTP) تُرفض.',
   'about.p4': 'الاتصال الوحيد بالإنترنت الذي قد يقوم به التطبيق هو «تحديث الأسعار» الاختياري، ويُرسل رمز عملة فقط.',
@@ -526,7 +537,7 @@ const ar = {
   'setup.pin': 'اختار رقم سري من 4 أرقام',
   'setup.pinHint': 'افتكره كويس — مفيش حد يقدر يرجّعه.',
   'setup.start': 'يلا نبدأ',
-  'setup.privacy': 'كل حاجة بتفضل على موبايلك بس.',
+  'setup.privacy': 'كل حاجة بتفضل على موبايلك بس ومتشفّرة. مش محتاج رقم سري — وتقدر تحط واحد بعدين من الإعدادات.',
   'quick.howMuch': 'بكام؟ اكتب المبلغ.',
   'quick.saved': 'اتسجّل: {what} {amount}',
   'quick.savedIncome': 'اتسجّل دخل: {what} {amount}',
@@ -552,6 +563,17 @@ const ar = {
   'goals.savedSoFar': 'حوّشت قد إيه لحد دلوقتي؟ (اختياري)',
   'goals.savedSoFarHint': 'هنسجّله كتحويشة وتقدر تعدّله أي وقت.',
   'goals.savingsAccountName': 'تحويشتي',
+  'settings.pinTitle': 'الرقم السري',
+  'settings.pinIsOn': 'شغّال',
+  'settings.pinIsOff': 'مقفول',
+  'settings.pinOn': 'حط رقم سري',
+  'settings.pinOff': 'شيل الرقم السري',
+  'settings.pinOffHint': 'التطبيق بيفتح على طول. بياناتك لسه متشفّرة على الموبايل، والحماية هنا هي قفل الآيفون نفسه (الرقم أو Face ID). حط رقم سري لو حد تاني بيستخدم موبايلك.',
+  'settings.pinOffConfirm': 'التطبيق هيفتح من غير ما يسألك على رقم سري. بياناتك هتفضل متشفّرة على الموبايل.',
+  'settings.pinWarning': 'لو نسيت الرقم السري مش هتقدر تفتح البيانات — خلّي عندك نسخة احتياطية.',
+  'settings.pinAdded': 'اتحط الرقم السري. التطبيق هيسألك عليه وهو بيفتح.',
+  'settings.pinRemoved': 'اتشال الرقم السري. التطبيق دلوقتي بيفتح على طول.',
+  'settings.oldPinRemoved': 'شيلنا الرقم السري — التطبيق بقى يفتح على طول. تقدر ترجّعه من الإعدادات.',
 };
 
 export const STRINGS = { en, ar };

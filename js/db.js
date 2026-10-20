@@ -1,6 +1,8 @@
-// Minimal IndexedDB key/value store. Two records are kept:
-//   meta  — unencrypted: salt, PIN attempt counter, language/theme for the lock screen
-//   vault — the whole app state, encrypted with AES-GCM ({ iv, ct })
+// Minimal IndexedDB key/value store. Records:
+//   meta      — unencrypted: lock mode, salt, PIN attempt counter, language/theme
+//   vault     — the whole app state, encrypted with AES-GCM ({ iv, ct })
+//   devicekey — only without a PIN: the random AES key, stored as a
+//               non-extractable CryptoKey (the browser keeps the key material)
 
 const DB_NAME = 'money-planner';
 const STORE = 'kv';
@@ -35,7 +37,8 @@ export const dbSet = (key, value) => tx('readwrite', (s) => s.put(value, key));
 export const dbSetMany = (entries) =>
   tx('readwrite', (s) => {
     let last;
-    for (const [k, v] of Object.entries(entries)) last = s.put(v, k);
+    // undefined deletes the record
+    for (const [k, v] of Object.entries(entries)) last = v === undefined ? s.delete(k) : s.put(v, k);
     return last;
   });
 export const dbClear = () => tx('readwrite', (s) => s.clear());

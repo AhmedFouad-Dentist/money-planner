@@ -280,3 +280,12 @@ test('main currency guessed from time zone, then language region', async () => {
   assert.equal(guessMainCurrency({ timeZone: 'Asia/Tokyo', languages: ['en-GB'] }), 'GBP');
   assert.equal(guessMainCurrency({ timeZone: 'Asia/Tokyo', languages: ['ar'] }), 'QAR');
 });
+
+test('no-PIN device key: works for encryption but its bytes cannot be read', async () => {
+  const { generateDeviceKey } = await import('../js/crypto.js');
+  const k = await generateDeviceKey();
+  assert.equal(k.extractable, false);
+  const box = await encryptJSON(k, { a: 1 });
+  assert.deepEqual(await decryptJSON(k, box), { a: 1 });
+  await assert.rejects(globalThis.crypto.subtle.exportKey('raw', k));
+});

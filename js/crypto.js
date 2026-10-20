@@ -22,6 +22,12 @@ export async function deriveKey(secret, salt, iterations = PBKDF2_ITERATIONS) {
   );
 }
 
+// A random AES key for the no-PIN mode. Non-extractable: the page can use it
+// but can never read the key bytes.
+export function generateDeviceKey() {
+  return subtle().generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
 export async function encryptJSON(key, value) {
   const iv = randomBytes(12);
   const data = new TextEncoder().encode(JSON.stringify(value));
